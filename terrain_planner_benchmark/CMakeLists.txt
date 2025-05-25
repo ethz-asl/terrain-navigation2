@@ -29,6 +29,7 @@ find_package(grid_map_geo REQUIRED)
 find_package(terrain_navigation REQUIRED)
 find_package(Boost REQUIRED) # Workaround for terrain_planner not exporting this correctly
 find_package(terrain_planner REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
@@ -36,6 +37,11 @@ add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME}
   PUBLIC 
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  ${geometry_msgs_TARGETS}
 )
 
 add_executable(terrain_planner_benchmark_node)
@@ -45,13 +51,19 @@ add_executable(test_rrt_replanning_node EXCLUDE_FROM_ALL)
 add_executable(surface_visualization EXCLUDE_FROM_ALL)
 add_executable(test_dubins_classification EXCLUDE_FROM_ALL)
 add_executable(run_replay EXCLUDE_FROM_ALL)
-add_executable(test_rrt_circle_goal EXCLUDE_FROM_ALL)
+add_executable(test_rrt_circle_goal
+  src/test_rrt_circle_goal.cpp
+)
+target_link_libraries(test_rrt_circle_goal PUBLIC
+  ${PROJECT_NAME}
+)
 add_subdirectory(src)
 
 include(GNUInstallDirs)
 install(
   TARGETS
     terrain_planner_benchmark_node
+    test_rrt_circle_goal
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )

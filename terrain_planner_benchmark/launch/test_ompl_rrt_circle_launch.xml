@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- <node pkg="tf" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 world map 10"/> -->
+  <node pkg="terrain_planner_benchmark" exec="test_rrt_circle_goal" name="rrt_planner" output="screen">
+    <param name="location" value="sertig"/>
+    <param name="map_path" value="$(find-pkg-share terrain_models)/models/sertig.tif"/>
+    <param name="color_file_path" value="$(find-pkg-share terrain_models)/models/sertig_color.tif"/>
+    <param name="output_directory" value="$(find-pkg-share terrain_planner_benchmark)/../output"/>
+  </node>
+  <node pkg="rviz2" exec="rviz2" name="rviz" args="-d $(find-pkg-share terrain_planner_benchmark)/launch/config.rviz" />
+</launch>

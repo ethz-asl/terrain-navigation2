@@ -1,11 +1,13 @@
 <img align="right" height="60" src="https://user-images.githubusercontent.com/5248102/126074528-004a32b9-7911-486a-9e79-8b78e6e66fdc.png">
 
-# terrain-navigation
+# terrain-navigation2
 
 [![Build Test](https://github.com/ethz-asl/terrain-navigation/actions/workflows/build_test.yml/badge.svg)](https://github.com/ethz-asl/terrain-navigation/actions/workflows/build_test.yml)
 
 This package includes an implementation of the RA-L submission of  "Safe Low-Altitude Navigation in Steep Terrain with Fixed-Wing Aerial Vehicles".
 The implementation includes a global planner based on a RRT* in the Dubins Airplane space enabling low altitude navigation for fixed wing vehicles in steep terrain.
+
+This repository is a ROS 2 port of the original implementation in [terrain-navigation](https://github.com/ethz-asl/terrain-navigation)
 
 <p align="center">
     <img src="https://github.com/ethz-asl/terrain-navigation/assets/5248102/90e43b60-ea8c-49db-9fb3-257b145fc35c" alt="overview">
@@ -56,6 +58,17 @@ Next, run the image, mounting in the source into a workspace. All the dependenci
 ```Bash
 docker run --network=host -it -v $(pwd):/root/ros2_ws/src/ethz-asl/terrain-navigation -w /root/ros2_ws terrain-navigation-ros2 bash
 ```
+
+## Running an example of the planner
+In order to run the examples, build the `terrain_planner_benchmark` package.
+```
+colcon build --packages-up-to terrain_planner_benchmark
+```
+Run a simple planning example:
+```
+ros2 launch terrain_planner_benchmark test_ompl_rrt_circle_launch.xml 
+```
+
 
 ### Running the Build
 

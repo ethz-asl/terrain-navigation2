@@ -25,6 +25,7 @@
   <build_depend>terrain_navigation</build_depend>
   <build_depend>ompl</build_depend>
   <build_depend>terrain_planner</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <exec_depend>python3-gdal</exec_depend>
 
   <export>
