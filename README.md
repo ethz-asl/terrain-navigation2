@@ -69,6 +69,10 @@ Run a simple planning example:
 ros2 launch terrain_planner_benchmark test_ompl_rrt_circle_launch.xml 
 ```
 
+<p align="center">
+    <img src="https://github.com/ethz-asl/terrain-navigation/assets/5248102/f630d1da-37c1-4e8d-9127-83a07ba22f45" alt="example" width="480">
+</p>
+
 
 ### Running the Build
 
