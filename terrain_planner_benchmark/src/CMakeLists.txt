@@ -47,8 +47,3 @@ target_sources(run_replay
   PRIVATE
     rviz_replay.cpp
 )
-
-target_sources(test_rrt_circle_goal
-  PRIVATE
-    test_rrt_circle_goal.cpp
-)
