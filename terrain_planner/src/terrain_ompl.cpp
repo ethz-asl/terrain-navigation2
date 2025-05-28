@@ -5,9 +5,12 @@
 namespace ompl {
 
 bool TerrainValidityChecker::isValid(const base::State* state) const {
-  const Eigen::Vector3d position(state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getX(),
-                                 state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getY(),
-                                 state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getZ());
+  const Eigen::Vector3d position(
+      state->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0],
+      state->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1],
+      state->as<ompl::base::OwenStateSpace::StateType>()
+          ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+          ->values[2]);
   return !checkCollision(position);
 }
 

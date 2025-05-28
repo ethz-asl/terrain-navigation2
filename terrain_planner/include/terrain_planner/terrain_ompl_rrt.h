@@ -36,6 +36,7 @@
 #define TERRAIN_PLANNER_TERRAIN_OMPL_RRT_H
 
 #include <ompl/base/goals/GoalStates.h>
+#include <ompl/base/spaces/OwenStateSpace.h>
 #include <stdio.h>
 #include <terrain_navigation/terrain_map.h>
 
@@ -69,9 +70,7 @@ class TerrainOmplRrt {
    *          - Negative: Clockwise
    */
   void setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& goal) {
-    this->setupProblem(
-        start_pos, goal,
-        problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->getMinTurningRadius());
+    this->setupProblem(start_pos, goal, 66.6);
   };
 
   /**
@@ -158,37 +157,45 @@ class TerrainOmplRrt {
    */
   bool Solve(double time_budget, Path& path);
   bool Solve(double time_budget, std::vector<Eigen::Vector3d>& path);
-  double getSegmentCurvature(std::shared_ptr<ompl::OmplSetup> problem_setup,
-                             fw_planning::spaces::DubinsPath& dubins_path, const size_t start_idx) const;
+  // double getSegmentCurvature(std::shared_ptr<ompl::OmplSetup> problem_setup,
+  //                            fw_planning::spaces::DubinsPath& dubins_path, const size_t start_idx) const;
   void solutionPathToPath(ompl::geometric::PathGeometric path, Path& trajectory_segments,
                           double resolution = 0.05) const;
   void solutionPathToTrajectoryPoints(ompl::geometric::PathGeometric path,
                                       std::vector<Eigen::Vector3d>& trajectory_points) const;
   std::shared_ptr<ompl::base::PlannerData> getPlannerData() { return planner_data_; };
   std::shared_ptr<ompl::OmplSetup> getProblemSetup() { return problem_setup_; };
-  ompl::base::StateSamplerPtr allocTerrainStateSampler(const ompl::base::StateSpace* space) {
-    return std::make_shared<ompl::TerrainStateSampler>(space, map_->getGridMap(), max_altitude_, min_altitude_);
-  }
+  // ompl::base::StateSamplerPtr allocTerrainStateSampler(const ompl::base::StateSpace* space) {
+  //   return std::make_shared<ompl::TerrainStateSampler>(space, map_->getGridMap(), max_altitude_, min_altitude_);
+  // }
   bool getSolutionPathLength(double& path_length);
   bool getSolutionPath(std::vector<Eigen::Vector3d>& path);
   double getSolutionTime() { return solve_duration_; };
   static Eigen::Vector3d dubinsairplanePosition(ompl::base::State* state_ptr) {
-    Eigen::Vector3d position(state_ptr->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getX(),
-                             state_ptr->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getY(),
-                             state_ptr->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getZ());
+    Eigen::Vector3d position(state_ptr->as<ompl::base::OwenStateSpace::StateType>()
+                                 ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                 ->values[0],
+                             state_ptr->as<ompl::base::OwenStateSpace::StateType>()
+                                 ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                 ->values[1],
+                             state_ptr->as<ompl::base::OwenStateSpace::StateType>()
+                                 ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                 ->values[2]);
     return position;
   }
   static double dubinsairplaneYaw(ompl::base::State* state_ptr) {
-    double yaw = state_ptr->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getYaw();
+    double yaw = state_ptr->as<ompl::base::OwenStateSpace::StateType>()->yaw();
     return yaw;
   }
-  static inline void segmentStart2omplState(fw_planning::spaces::DubinsAirplaneStateSpace::SegmentStarts::Start start,
-                                            ompl::base::State* state) {
-    state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setX(start.x);
-    state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setY(start.y);
-    state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setZ(start.z);
-    state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setYaw(start.yaw);
-  }
+  // static inline void segmentStart2omplState(ompl::base::OwenStateSpace::SegmentStarts::Start start,
+  //                                           ompl::base::State* state) {
+  //   state->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0]
+  //   = start.x;
+  //   state->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1]
+  //   = start.y;
+  //   state->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2]
+  //   = start.z; state->as<ompl::base::OwenStateSpace::StateType>()->yaw() = start.yaw;
+  // }
   void setAltitudeLimits(const double max_altitude, const double min_altitude) {
     max_altitude_ = max_altitude;
     min_altitude_ = min_altitude;

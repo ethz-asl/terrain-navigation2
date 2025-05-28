@@ -105,11 +105,10 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
   planner_data->decoupleFromPlanner();
 
   // Create states, a marker and a list to store edges
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> vertex(problem_setup->getSpaceInformation());
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> neighbor_vertex(
-      problem_setup->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> vertex(problem_setup->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> neighbor_vertex(problem_setup->getSpaceInformation());
   size_t marker_idx{0};
-  auto dubins_ss = std::make_shared<fw_planning::spaces::DubinsAirplaneStateSpace>();
+  auto dubins_ss = std::make_shared<ompl::base::OwenStateSpace>();
   for (size_t i = 0; i < planner_data->numVertices(); i++) {
     visualization_msgs::msg::Marker marker;
     marker.header.stamp = rclcpp::Clock().now();
@@ -151,26 +150,40 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
         // points.push_back(toMsg(Eigen::Vector3d(neighbor_vertex[0], neighbor_vertex[1], neighbor_vertex[2])));
         ompl::base::State* state = dubins_ss->allocState();
         ompl::base::State* from = dubins_ss->allocState();
-        from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setX(vertex[0]);
-        from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setY(vertex[1]);
-        from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setZ(vertex[2]);
-        from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setYaw(vertex[3]);
+        from->as<ompl::base::OwenStateSpace::StateType>()
+            ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+            ->values[0] = vertex[0];
+        from->as<ompl::base::OwenStateSpace::StateType>()
+            ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+            ->values[1] = vertex[1];
+        from->as<ompl::base::OwenStateSpace::StateType>()
+            ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+            ->values[2] = vertex[2];
+        from->as<ompl::base::OwenStateSpace::StateType>()->yaw() = vertex[3];
 
         ompl::base::State* to = dubins_ss->allocState();
-        to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setX(neighbor_vertex[0]);
-        to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setY(neighbor_vertex[1]);
-        to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setZ(neighbor_vertex[2]);
-        to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setYaw(neighbor_vertex[3]);
+        to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+            neighbor_vertex[0];
+        to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+            neighbor_vertex[1];
+        to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] =
+            neighbor_vertex[2];
+        to->as<ompl::base::OwenStateSpace::StateType>()->yaw() = neighbor_vertex[3];
         if (dubins_ss->equalStates(from, to)) {
           continue;
         }
         std::vector<geometry_msgs::msg::Point> points;
         for (double t = 0.0; t < 1.0; t += 0.02) {
           dubins_ss->interpolate(from, to, t, state);
-          auto interpolated_state =
-              Eigen::Vector3d(state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getX(),
-                              state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getY(),
-                              state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getZ());
+          auto interpolated_state = Eigen::Vector3d(state->as<ompl::base::OwenStateSpace::StateType>()
+                                                        ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                        ->values[0],
+                                                    state->as<ompl::base::OwenStateSpace::StateType>()
+                                                        ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                        ->values[1],
+                                                    state->as<ompl::base::OwenStateSpace::StateType>()
+                                                        ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                        ->values[2]);
           points.push_back(tf2::toMsg(interpolated_state));
         }
         points.push_back(tf2::toMsg(Eigen::Vector3d(neighbor_vertex[0], neighbor_vertex[1], neighbor_vertex[2])));

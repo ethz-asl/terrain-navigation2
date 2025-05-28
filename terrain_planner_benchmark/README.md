@@ -7,7 +7,7 @@ See [74](https://github.com/ethz-asl/terrain-navigation/issues/74) for details.
 
 Build this repository, and your terrain source.
 ```
-colcon build --packages-up-to terrain_planner_benchmark terrain_models
+colcon build --packages-up-to terrain_planner_benchmark terrain_models --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
 ## Terrain Planner Benchmark Node

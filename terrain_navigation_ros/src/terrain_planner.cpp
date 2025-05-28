@@ -163,7 +163,7 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   terrain_map_ = std::make_shared<TerrainMap>();
 
   // Initialize Dubins state space
-  dubins_state_space_ = std::make_shared<fw_planning::spaces::DubinsAirplaneStateSpace>(goal_radius_);
+  dubins_state_space_ = std::make_shared<ompl::base::OwenStateSpace>(goal_radius_);
   global_planner_ = std::make_shared<TerrainOmplRrt>(ompl::base::StateSpacePtr(dubins_state_space_));
   global_planner_->setMap(terrain_map_);
   global_planner_->setAltitudeLimits(max_elevation_, min_elevation_);

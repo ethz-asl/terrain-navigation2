@@ -44,8 +44,6 @@ pkg_check_modules(ODE REQUIRED ode)
 # Libraries
 add_library(${PROJECT_NAME}
   src/common.cpp
-  src/DubinsAirplane.cpp
-  src/DubinsPath.cpp
   src/terrain_ompl_rrt.cpp
   src/terrain_ompl.cpp
   src/visualization.cpp

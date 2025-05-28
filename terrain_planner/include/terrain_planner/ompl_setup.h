@@ -11,7 +11,6 @@
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 
 #include "ompl/base/SpaceInformation.h"
-#include "terrain_planner/DubinsAirplane.hpp"
 #include "terrain_planner/terrain_ompl.h"
 
 enum PlannerType { RRTSTAR, INFORMED_RRTSTAR, RRTCONNECT, BITSTAR, FMTSTAR };

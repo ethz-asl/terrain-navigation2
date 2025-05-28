@@ -94,35 +94,45 @@ void publishCircleSetpoints(rclcpp::Publisher<visualization_msgs::msg::Marker>::
   pub->publish(marker);
 }
 
-void getDubinsShortestPath(std::shared_ptr<fw_planning::spaces::DubinsAirplaneStateSpace>& dubins_ss,
-                           const Eigen::Vector3d start_pos, const double start_yaw, const Eigen::Vector3d goal_pos,
-                           const double goal_yaw, std::vector<Eigen::Vector3d>& path) {
+void getDubinsShortestPath(std::shared_ptr<ompl::base::OwenStateSpace>& dubins_ss, const Eigen::Vector3d start_pos,
+                           const double start_yaw, const Eigen::Vector3d goal_pos, const double goal_yaw,
+                           std::vector<Eigen::Vector3d>& path) {
   ompl::base::State* from = dubins_ss->allocState();
-  from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setX(start_pos.x());
-  from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setY(start_pos.y());
-  from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setZ(start_pos.z());
-  from->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setYaw(start_yaw);
+  from->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+      start_pos.x();
+  from->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+      start_pos.y();
+  from->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] =
+      start_pos.z();
+  from->as<ompl::base::OwenStateSpace::StateType>()->yaw() = start_yaw;
 
   ompl::base::State* to = dubins_ss->allocState();
-  to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setX(goal_pos.x());
-  to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setY(goal_pos.y());
-  to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setZ(goal_pos.z());
-  to->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->setYaw(goal_yaw);
+  to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+      goal_pos.x();
+  to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+      goal_pos.y();
+  to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] =
+      goal_pos.z();
+  to->as<ompl::base::OwenStateSpace::StateType>()->yaw() = goal_yaw;
 
   ompl::base::State* state = dubins_ss->allocState();
   for (double t = 0.0; t < 1.0; t += 0.02) {
     dubins_ss->interpolate(from, to, t, state);
-    auto interpolated_state =
-        Eigen::Vector3d(state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getX(),
-                        state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getY(),
-                        state->as<fw_planning::spaces::DubinsAirplaneStateSpace::StateType>()->getZ());
+    auto interpolated_state = Eigen::Vector3d(state->as<ompl::base::OwenStateSpace::StateType>()
+                                                  ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                  ->values[0],
+                                              state->as<ompl::base::OwenStateSpace::StateType>()
+                                                  ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                  ->values[1],
+                                              state->as<ompl::base::OwenStateSpace::StateType>()
+                                                  ->as<ompl::base::RealVectorStateSpace::StateType>(0)
+                                                  ->values[2]);
     path.push_back(interpolated_state);
   }
 }
 
-double getDubinsTangentPoint(std::shared_ptr<fw_planning::spaces::DubinsAirplaneStateSpace>& dubins_ss,
-                             const Eigen::Vector3d start_pos, const double start_yaw, const Eigen::Vector3d goal_pos,
-                             const double goal_radius) {
+double getDubinsTangentPoint(std::shared_ptr<ompl::base::OwenStateSpace>& dubins_ss, const Eigen::Vector3d start_pos,
+                             const double start_yaw, const Eigen::Vector3d goal_pos, const double goal_radius) {
   // References:
   //  [1] Chen, Zheng. "On Dubins paths to a circle." Automatica 117 (2020): 108996.
   //  [2] Manyam, Satyanarayana G., et al. "Shortest Dubins path to a circle." AIAA Scitech 2019 Forum. 2019.
@@ -190,7 +200,7 @@ class OmplRrtPlanner : public rclcpp::Node {
   }
 
   void timer_callback() {
-    auto dubins_ss = std::make_shared<fw_planning::spaces::DubinsAirplaneStateSpace>();
+    auto dubins_ss = std::make_shared<ompl::base::OwenStateSpace>();
     Eigen::Vector3d start_pos(0.0, 0.0, 0.0);
     /// Goal circular radius
     Eigen::Vector3d goal_pos(400.0, 0.0, 0.0);
