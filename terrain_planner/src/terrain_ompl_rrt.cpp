@@ -123,7 +123,7 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
 
   double radius;
   if (goal_radius < 0) {
-    radius = goal_radius;
+    radius = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius();
   } else {
     radius = goal_radius;
   }
