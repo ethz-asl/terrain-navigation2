@@ -62,7 +62,7 @@ docker run --network=host -it -v $(pwd):/root/ros2_ws/src/ethz-asl/terrain-navig
 ## Running an example of the planner
 In order to run the examples, build the `terrain_planner_benchmark` package.
 ```
-colcon build --packages-up-to terrain_planner_benchmark
+colcon build --packages-up-to terrain_planner_benchmark --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 Run a simple planning example:
 ```
@@ -94,7 +94,7 @@ rosdep install --from-paths src --ignore-src
 
 Build the package
 ```bash
-colcon build --packages-up-to terrain_navigation_ros
+colcon build --packages-up-to terrain_navigation_ros --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
 ## Running with PX4 SITL(Software-In-The-Loop), Gazebo and QGroundControl (QGC)

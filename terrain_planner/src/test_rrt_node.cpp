@@ -59,8 +59,6 @@
 
 //! @todo(srmainwaring)check includes
 // #include "terrain_planner/common.h"
-// #include "terrain_planner/DubinsAirplane.hpp"
-// #include "terrain_planner/DubinsPath.hpp"
 // #include "terrain_planner/maneuver_library.h"
 // #include "terrain_planner/ompl_setup.h"
 // #include "terrain_planner/planner.h"

@@ -35,9 +35,9 @@
 #include "terrain_planner/terrain_ompl_rrt.h"
 
 // Constructor
-TerrainOmplRrt::TerrainOmplRrt() {
-  problem_setup_ =
-      std::make_shared<ompl::OmplSetup>(ompl::base::StateSpacePtr(new fw_planning::spaces::DubinsAirplaneStateSpace()));
+TerrainOmplRrt::TerrainOmplRrt(const double minTurnRadius, const double maxPitchAngle) {
+  problem_setup_ = std::make_shared<ompl::OmplSetup>(
+      ompl::base::StateSpacePtr(new ompl::base::OwenStateSpace(minTurnRadius, maxPitchAngle)));
 }
 TerrainOmplRrt::TerrainOmplRrt(const ompl::base::StateSpacePtr& space) {
   problem_setup_ = std::make_shared<ompl::OmplSetup>(space);
@@ -67,8 +67,7 @@ void TerrainOmplRrt::configureProblem() {
   bounds.setHigh(2, upper_bound_.z());
 
   // Define start and goal positions.
-  problem_setup_->getGeometricComponentStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->setBounds(
-      bounds);
+  problem_setup_->getGeometricComponentStateSpace()->as<ompl::base::OwenStateSpace>()->setBounds(bounds);
 
   problem_setup_->setStateValidityCheckingResolution(0.001);
 
@@ -78,36 +77,36 @@ void TerrainOmplRrt::configureProblem() {
 void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& goal,
                                   double start_loiter_radius) {
   configureProblem();
-  double radius =
-      problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->getMinTurningRadius();
+  /// TODO: FiXME
+  double radius = start_loiter_radius;
   double delta_theta = 0.1;
   for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
-    ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> start_ompl(
-        problem_setup_->getSpaceInformation());
+    ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
 
-    start_ompl->setX(start_pos(0) + std::abs(start_loiter_radius) * std::cos(theta));
-    start_ompl->setY(start_pos(1) + std::abs(start_loiter_radius) * std::sin(theta));
-    start_ompl->setZ(start_pos(2));
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+        start_pos(0) + std::abs(start_loiter_radius) * std::cos(theta);
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+        start_pos(1) + std::abs(start_loiter_radius) * std::sin(theta);
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = start_pos(2);
     double start_yaw = bool(start_loiter_radius > 0) ? theta - M_PI_2 : theta + M_PI_2;
     wrap_pi(start_yaw);
-    start_ompl->setYaw(start_yaw);
+    start_ompl->yaw() = start_yaw;
     problem_setup_->addStartState(start_ompl);
   }
 
   goal_states_ = std::make_shared<ompl::base::GoalStates>(problem_setup_->getSpaceInformation());
   for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
-    ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> goal_ompl(
-        problem_setup_->getSpaceInformation());
-    goal_ompl->setX(goal(0) + radius * std::cos(theta));
-    goal_ompl->setY(goal(1) + radius * std::sin(theta));
-    goal_ompl->setZ(goal(2));
+    ompl::base::ScopedState<ompl::base::OwenStateSpace> goal_ompl(problem_setup_->getSpaceInformation());
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = goal(0) + radius * std::cos(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = goal(1) + radius * std::sin(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = goal(2);
     double goal_yaw = theta + M_PI_2;
     wrap_pi(goal_yaw);
-    goal_ompl->setYaw(goal_yaw);
+    goal_ompl->yaw() = goal_yaw;
     goal_states_->addState(goal_ompl);
     goal_yaw = theta - M_PI_2;
     wrap_pi(goal_yaw);
-    goal_ompl->setYaw(goal_yaw);
+    goal_ompl->yaw() = goal_yaw;
     goal_states_->addState(goal_ompl);  // Add additional state for bidirectional tangents
   }
   problem_setup_->setGoal(goal_states_);
@@ -124,37 +123,34 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
 
   double radius;
   if (goal_radius < 0) {
-    radius =
-        problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->getMinTurningRadius();
+    radius = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius();
   } else {
     radius = goal_radius;
   }
   double delta_theta = 0.1;
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> start_ompl(
-      problem_setup_->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
 
-  start_ompl->setX(start_pos(0));
-  start_ompl->setY(start_pos(1));
-  start_ompl->setZ(start_pos(2));
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = start_pos(0);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = start_pos(1);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = start_pos(2);
   double start_yaw = std::atan2(start_vel(1), start_vel(0));
-  start_ompl->setYaw(start_yaw);
+  start_ompl->yaw() = start_yaw;
   problem_setup_->clearStartStates();  // Clear previous goal states
   problem_setup_->addStartState(start_ompl);
 
   goal_states_ = std::make_shared<ompl::base::GoalStates>(problem_setup_->getSpaceInformation());
   for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
-    ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> goal_ompl(
-        problem_setup_->getSpaceInformation());
-    goal_ompl->setX(goal(0) + radius * std::cos(theta));
-    goal_ompl->setY(goal(1) + radius * std::sin(theta));
-    goal_ompl->setZ(goal(2));
+    ompl::base::ScopedState<ompl::base::OwenStateSpace> goal_ompl(problem_setup_->getSpaceInformation());
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = goal(0) + radius * std::cos(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = goal(1) + radius * std::sin(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = goal(2);
     double goal_yaw = theta + M_PI_2;
     wrap_pi(goal_yaw);
-    goal_ompl->setYaw(goal_yaw);
+    goal_ompl->yaw() = goal_yaw;
     goal_states_->addState(goal_ompl);
     goal_yaw = theta - M_PI_2;
     wrap_pi(goal_yaw);
-    goal_ompl->setYaw(goal_yaw);
+    goal_ompl->yaw() = goal_yaw;
     goal_states_->addState(goal_ompl);  // Add additional state for bidirectional tangents
   }
   problem_setup_->setGoal(goal_states_);
@@ -170,35 +166,32 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
   }
   configureProblem();
 
-  double radius =
-      problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->getMinTurningRadius();
+  double radius;
   double delta_theta = 0.1;
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> start_ompl(
-      problem_setup_->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
 
-  start_ompl->setX(start_pos(0));
-  start_ompl->setY(start_pos(1));
-  start_ompl->setZ(start_pos(2));
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = start_pos(0);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = start_pos(1);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = start_pos(2);
   double start_yaw = std::atan2(start_vel(1), start_vel(0));
-  start_ompl->setYaw(start_yaw);
+  start_ompl->yaw() = start_yaw;
   problem_setup_->clearStartStates();  // Clear previous goal states
   problem_setup_->addStartState(start_ompl);
 
   goal_states_ = std::make_shared<ompl::base::GoalStates>(problem_setup_->getSpaceInformation());
   for (auto& goal : goal_positions) {
     for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
-      ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> goal_ompl(
-          problem_setup_->getSpaceInformation());
-      goal_ompl->setX(goal(0) + radius * std::cos(theta));
-      goal_ompl->setY(goal(1) + radius * std::sin(theta));
-      goal_ompl->setZ(goal(2));
+      ompl::base::ScopedState<ompl::base::OwenStateSpace> goal_ompl(problem_setup_->getSpaceInformation());
+      goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = goal(0) + radius * std::cos(theta);
+      goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = goal(1) + radius * std::sin(theta);
+      goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = goal(2);
       double goal_yaw = theta + M_PI_2;
       wrap_pi(goal_yaw);
-      goal_ompl->setYaw(goal_yaw);
+      goal_ompl->yaw() = goal_yaw;
       goal_states_->addState(goal_ompl);
       goal_yaw = theta - M_PI_2;
       wrap_pi(goal_yaw);
-      goal_ompl->setYaw(goal_yaw);
+      goal_ompl->yaw() = goal_yaw;
       goal_states_->addState(goal_ompl);  // Add additional state for bidirectional tangents
     }
   }
@@ -211,22 +204,20 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
                                   const Eigen::Vector3d& goal, const Eigen::Vector3d& goal_vel) {
   configureProblem();
 
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> start_ompl(
-      problem_setup_->getSpaceInformation());
-  ompl::base::ScopedState<fw_planning::spaces::DubinsAirplaneStateSpace> goal_ompl(
-      problem_setup_->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
+  ompl::base::ScopedState<ompl::base::OwenStateSpace> goal_ompl(problem_setup_->getSpaceInformation());
 
-  start_ompl->setX(start_pos(0));
-  start_ompl->setY(start_pos(1));
-  start_ompl->setZ(start_pos(2));
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = start_pos(0);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = start_pos(1);
+  start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = start_pos(2);
   double start_yaw = std::atan2(start_vel(1), start_vel(0));
-  start_ompl->setYaw(start_yaw);
+  start_ompl->yaw() = start_yaw;
 
-  goal_ompl->setX(goal(0));
-  goal_ompl->setY(goal(1));
-  goal_ompl->setZ(goal(2));
+  goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] = goal(0);
+  goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] = goal(1);
+  goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = goal(2);
   double goal_yaw = std::atan2(goal_vel(1), goal_vel(0));
-  goal_ompl->setYaw(goal_yaw);
+  goal_ompl->yaw() = goal_yaw;
 
   problem_setup_->setStartAndGoalStates(start_ompl, goal_ompl);
   problem_setup_->setup();
@@ -321,28 +312,26 @@ bool TerrainOmplRrt::getSolutionPath(std::vector<Eigen::Vector3d>& path) {
   return false;
 }
 
-double TerrainOmplRrt::getSegmentCurvature(std::shared_ptr<ompl::OmplSetup> problem_setup,
-                                           fw_planning::spaces::DubinsPath& dubins_path, const size_t start_idx) const {
-  double segment_curvature{0.0};
-  double maximum_curvature = 1 / problem_setup->getGeometricComponentStateSpace()
-                                     ->as<fw_planning::spaces::DubinsAirplaneStateSpace>()
-                                     ->getMinTurningRadius();
-  switch (
-      dubins_path
-          .getType()[problem_setup->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->convert_idx(
-              start_idx)]) {
-    case fw_planning::spaces::DubinsPath::DUBINS_LEFT:
-      segment_curvature = maximum_curvature;
-      break;
-    case fw_planning::spaces::DubinsPath::DUBINS_RIGHT:
-      segment_curvature = -maximum_curvature;
-      break;
-    case fw_planning::spaces::DubinsPath::DUBINS_STRAIGHT:
-      segment_curvature = 0.0;
-      break;
-  }
-  return segment_curvature;
-}
+// double TerrainOmplRrt::getSegmentCurvature(std::shared_ptr<ompl::OmplSetup> problem_setup,
+//                                          fw_planning::spaces::DubinsPath& dubins_path, const size_t start_idx) const
+//                                          {
+//   double segment_curvature{0.0};
+//   double maximum_curvature;
+//   switch (
+//       dubins_path.getType()[problem_setup->getStateSpace()->as<ompl::base::OwenStateSpace>()->convert_idx(
+//           start_idx)]) {
+//     case fw_planning::spaces::DubinsPath::DUBINS_LEFT:
+//       segment_curvature = maximum_curvature;
+//       break;
+//     case fw_planning::spaces::DubinsPath::DUBINS_RIGHT:
+//       segment_curvature = -maximum_curvature;
+//       break;
+//     case fw_planning::spaces::DubinsPath::DUBINS_STRAIGHT:
+//       segment_curvature = 0.0;
+//       break;
+//   }
+//   return segment_curvature;
+// }
 
 void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Path& trajectory_segments,
                                         double resolution) const {
@@ -352,73 +341,72 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
   for (size_t idx = 0; idx < state_vector.size() - 1; idx++) {
     auto from = state_vector[idx];    // Start of the segment
     auto to = state_vector[idx + 1];  // End of the segment
-    fw_planning::spaces::DubinsPath dubins_path;
-    problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->dubins(from, to, dubins_path);
-    fw_planning::spaces::DubinsAirplaneStateSpace::SegmentStarts segmentStarts;
-    problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->calculateSegments(
-        from, to, dubins_path, segmentStarts);
+    auto path = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getPath(from, to);
+    // ompl::base::OwenStateSpace::SegmentStarts segmentStarts;
+    // problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->calculateSegments(
+    //     from, to, dubins_path, segmentStarts);
 
     ompl::base::State* segment_start_state = problem_setup_->getStateSpace()->allocState();
     ompl::base::State* segment_end_state = problem_setup_->getStateSpace()->allocState();
 
-    const double total_length = dubins_path.length_2D();
-    const double dt = resolution / dubins_path.length_2D();
+    // const double total_length = dubins_path.length_2D();
+    // const double dt = resolution / dubins_path.length_2D();
     double progress{0.0};
-    for (size_t start_idx = 0; start_idx < segmentStarts.segmentStarts.size(); start_idx++) {
-      if (dubins_path.getSegmentLength(start_idx) > 0.0) {
-        double segment_progress = dubins_path.getSegmentLength(start_idx) / total_length;
-        // Read segment start and end statess
-        segmentStart2omplState(segmentStarts.segmentStarts[start_idx], segment_start_state);
-        if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) {
-          segment_end_state = to;
-        } else if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
-                   dubins_path.getSegmentLength(start_idx + 1) == 0.0) {
-          segment_end_state = to;
-        } else {
-          segmentStart2omplState(segmentStarts.segmentStarts[start_idx + 1], segment_end_state);
-        }
+    //   for (size_t start_idx = 0; start_idx < segmentStarts.segmentStarts.size(); start_idx++) {
+    //     if (dubins_path.getSegmentLength(start_idx) > 0.0) {
+    //       double segment_progress = dubins_path.getSegmentLength(start_idx) / total_length;
+    //       // Read segment start and end statess
+    //       segmentStart2omplState(segmentStarts.segmentStarts[start_idx], segment_start_state);
+    //       if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) {
+    //         segment_end_state = to;
+    //       } else if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
+    //                  dubins_path.getSegmentLength(start_idx + 1) == 0.0) {
+    //         segment_end_state = to;
+    //       } else {
+    //         segmentStart2omplState(segmentStarts.segmentStarts[start_idx + 1], segment_end_state);
+    //       }
 
-        // Append to trajectory
-        PathSegment trajectory;
-        trajectory.curvature = getSegmentCurvature(problem_setup_, dubins_path, start_idx);
-        ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
-        trajectory.flightpath_angle = dubins_path.getGamma();
-        double yaw;
-        double track_progress{0.0};
-        for (double t = progress; t <= progress + segment_progress; t = t + dt) {
-          State segment_state;
-          problem_setup_->getStateSpace()->as<fw_planning::spaces::DubinsAirplaneStateSpace>()->interpolate(
-              dubins_path, segmentStarts, t, state);
-          Eigen::Vector3d position = dubinsairplanePosition(state);
-          yaw = dubinsairplaneYaw(state);
-          Eigen::Vector3d velocity = Eigen::Vector3d(std::cos(yaw), std::sin(yaw), 0.0);
-          segment_state.position = position;
-          segment_state.velocity = velocity;
-          segment_state.attitude = Eigen::Vector4d(std::cos(yaw / 2.0), 0.0, 0.0, std::sin(yaw / 2.0));
-          trajectory.states.emplace_back(segment_state);
-          track_progress = t;
-        }
-        // Append end state
-        if (((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) ||
-            ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
-             dubins_path.getSegmentLength(start_idx + 1) == 0.0)) {
-          // Append segment with last state
-          State end_state;
-          Eigen::Vector3d end_position = dubinsairplanePosition(segment_end_state);
-          double end_yaw = dubinsairplaneYaw(segment_end_state);
-          Eigen::Vector3d end_velocity = Eigen::Vector3d(std::cos(end_yaw), std::sin(end_yaw), 0.0);
-          end_state.position = end_position;
-          end_state.velocity = end_velocity;
-          end_state.attitude = Eigen::Vector4d(std::cos(end_yaw / 2.0), 0.0, 0.0, std::sin(end_yaw / 2.0));
-          trajectory.states.emplace_back(end_state);
-        }
-        progress = track_progress;
-        // Do not append trajectory if the segment is too short
-        if (trajectory.states.size() > 1) {
-          trajectory_segments.segments.push_back(trajectory);
-        }
-      }
-    }
+    //       // Append to trajectory
+    //       PathSegment trajectory;
+    //       trajectory.curvature = getSegmentCurvature(problem_setup_, dubins_path, start_idx);
+    //       ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
+    //       trajectory.flightpath_angle = dubins_path.getGamma();
+    //       double yaw;
+    //       double track_progress{0.0};
+    //       for (double t = progress; t <= progress + segment_progress; t = t + dt) {
+    //         State segment_state;
+    //         problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(
+    //             dubins_path, segmentStarts, t, state);
+    //         Eigen::Vector3d position = dubinsairplanePosition(state);
+    //         yaw = dubinsairplaneYaw(state);
+    //         Eigen::Vector3d velocity = Eigen::Vector3d(std::cos(yaw), std::sin(yaw), 0.0);
+    //         segment_state.position = position;
+    //         segment_state.velocity = velocity;
+    //         segment_state.attitude = Eigen::Vector4d(std::cos(yaw / 2.0), 0.0, 0.0, std::sin(yaw / 2.0));
+    //         trajectory.states.emplace_back(segment_state);
+    //         track_progress = t;
+    //       }
+    //       // Append end state
+    //       if (((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) ||
+    //           ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
+    //            dubins_path.getSegmentLength(start_idx + 1) == 0.0)) {
+    //         // Append segment with last state
+    //         State end_state;
+    //         Eigen::Vector3d end_position = dubinsairplanePosition(segment_end_state);
+    //         double end_yaw = dubinsairplaneYaw(segment_end_state);
+    //         Eigen::Vector3d end_velocity = Eigen::Vector3d(std::cos(end_yaw), std::sin(end_yaw), 0.0);
+    //         end_state.position = end_position;
+    //         end_state.velocity = end_velocity;
+    //         end_state.attitude = Eigen::Vector4d(std::cos(end_yaw / 2.0), 0.0, 0.0, std::sin(end_yaw / 2.0));
+    //         trajectory.states.emplace_back(end_state);
+    //       }
+    //       progress = track_progress;
+    //       // Do not append trajectory if the segment is too short
+    //       if (trajectory.states.size() > 1) {
+    //         trajectory_segments.segments.push_back(trajectory);
+    //       }
+    //     }
+    //   }
   }
 }
 
