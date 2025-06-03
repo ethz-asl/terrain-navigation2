@@ -94,7 +94,7 @@ rosdep install --from-paths src --ignore-src
 
 Build the package
 ```bash
-colcon build --packages-up-to terrain_navigation_ros
+colcon build --packages-up-to terrain_navigation_ros --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
 ## Running with PX4 SITL(Software-In-The-Loop), Gazebo and QGroundControl (QGC)

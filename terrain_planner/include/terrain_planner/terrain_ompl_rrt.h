@@ -50,7 +50,7 @@
 
 class TerrainOmplRrt {
  public:
-  TerrainOmplRrt();
+  TerrainOmplRrt(const double minTurnRadius = 66.7, const double maxPitchAngle = 0.3 * M_PI);
   TerrainOmplRrt(const ompl::base::StateSpacePtr& space);
   virtual ~TerrainOmplRrt();
 
@@ -70,7 +70,8 @@ class TerrainOmplRrt {
    *          - Negative: Clockwise
    */
   void setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& goal) {
-    this->setupProblem(start_pos, goal, problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius());
+    this->setupProblem(start_pos, goal,
+                       problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius());
   };
 
   /**
