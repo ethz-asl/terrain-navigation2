@@ -69,8 +69,8 @@ class Path {
   void resetSegments() { segments.clear(); };
   void prependSegment(const PathSegment &trajectory) { segments.insert(segments.begin(), trajectory); };
   void prependSegment(const Path &trajectory_segments) {
-    for (int i = trajectory_segments.segments.size() -1; i > -1; i--) {
-      prependSegment(trajectory_segments.segments[i]);
+    for (int i = trajectory_segments.segments.size(); i > 0; i--) {
+      prependSegment(trajectory_segments.segments[i-1]);
     }
   }
   void appendSegment(const PathSegment &trajectory) { segments.push_back(trajectory); };
