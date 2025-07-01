@@ -9,11 +9,12 @@
 #include <ompl/geometric/planners/rrt/InformedRRTstar.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/AORRTC.h>
 
 #include "ompl/base/SpaceInformation.h"
 #include "terrain_planner/terrain_ompl.h"
 
-enum PlannerType { RRTSTAR, INFORMED_RRTSTAR, RRTCONNECT, BITSTAR, FMTSTAR };
+enum PlannerType { RRTSTAR, INFORMED_RRTSTAR, RRTCONNECT, BITSTAR, FMTSTAR, AORRTC };
 
 namespace ompl {
 
@@ -28,6 +29,13 @@ class OmplSetup : public geometric::SimpleSetup {
 
   void setDefaultPlanner(PlannerType planner_type = PlannerType::RRTSTAR) {
     switch (planner_type) {
+      case PlannerType::AORRTC: {
+        auto planner = std::make_shared<ompl::geometric::AORRTC>(getSpaceInformation());
+        planner->setRange(600.0);
+        // planner->setGoalBias(goal_bias);
+        setPlanner(planner);
+        break;
+      }
       case PlannerType::RRTSTAR: {
         auto planner = std::make_shared<ompl::geometric::RRTstar>(getSpaceInformation());
         planner->setRange(600.0);
