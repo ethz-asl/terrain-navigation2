@@ -175,7 +175,7 @@ def visualizeDEM3DMayavi(fig, dataset, path_df):
 def visualizeICS(fig, ax, dataset):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    im = ax.imshow(dataset, cmap=cm.get_cmap('winter', 2), origin='upper')
+    im = ax.imshow(dataset, cmap=cm.get_cmap('winter', 2), origin='upper', interpolation='nearest')
     cb = fig.colorbar(im, cax=cax, orientation='vertical')
     # cb.remove()
     ax.set_xlabel("X [km]")
