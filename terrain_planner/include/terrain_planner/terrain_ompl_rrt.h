@@ -202,6 +202,10 @@ class TerrainOmplRrt {
     min_altitude_ = min_altitude;
   }
 
+  PathSegment extractPathSegment(ompl::base::State* from, ompl::base::State* to,
+    ompl::base::TrochoidAirplaneStateSpace::PathType& path, double t_start = 0.0,
+    double t_end = 1.0, double dt = 0.01) const;
+
  private:
   // double minimum_turning_radius_{66.67};
   std::shared_ptr<ompl::OmplSetup> problem_setup_;

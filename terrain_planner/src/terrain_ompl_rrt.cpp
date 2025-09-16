@@ -333,6 +333,22 @@ bool TerrainOmplRrt::getSolutionPath(std::vector<Eigen::Vector3d>& path) {
 //   return segment_curvature;
 // }
 
+PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::base::State* to,
+  ompl::base::TrochoidAirplaneStateSpace::PathType& path,
+  double t_start, double t_end, double dt) const {
+ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
+PathSegment trajectory;
+for (double t = t_start; t <= t_end; t += dt) {
+// Append to trajectory
+problem_setup_->getStateSpace()->as<ompl::base::TrochoidAirplaneStateSpace>()->interpolate(from, to, t, path,
+                                         state);
+State segment_state;
+segment_state.position = dubinsairplanePosition(state);
+trajectory.states.emplace_back(segment_state);
+}
+return trajectory;
+}
+
 void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Path& trajectory_segments,
                                         double resolution) const {
   trajectory_segments.segments.clear();
@@ -341,72 +357,64 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
   for (size_t idx = 0; idx < state_vector.size() - 1; idx++) {
     auto from = state_vector[idx];    // Start of the segment
     auto to = state_vector[idx + 1];  // End of the segment
-    auto path = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getPath(from, to);
-    // ompl::base::OwenStateSpace::SegmentStarts segmentStarts;
-    // problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->calculateSegments(
-    //     from, to, dubins_path, segmentStarts);
+    auto dubins_path = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getPath(from, to);
 
-    ompl::base::State* segment_start_state = problem_setup_->getStateSpace()->allocState();
-    ompl::base::State* segment_end_state = problem_setup_->getStateSpace()->allocState();
+    if (dubins_path->phi_ == 0.) {
+      if (dubins_path->numTurns_ == 0) {
+        // Low path case
+        double t_start{0.0};
+        double t_end{0.0};
+        double length = dubins_path->path_.length();
+        for (int idx = 0; idx < 3; idx++) {
+          t_end = idx == 2 ? 1.0 : dubins_path->path_.length_[idx] / length + t_start;
+          auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end);
+          if (trajectory.states.size() > 1) {
+            trajectory_segments.segments.push_back(trajectory);
+          }
+          t_start = t_end;
+        }
+      } else {
+        // high altitude path
 
-    // const double total_length = dubins_path.length_2D();
-    // const double dt = resolution / dubins_path.length_2D();
-    double progress{0.0};
-    //   for (size_t start_idx = 0; start_idx < segmentStarts.segmentStarts.size(); start_idx++) {
-    //     if (dubins_path.getSegmentLength(start_idx) > 0.0) {
-    //       double segment_progress = dubins_path.getSegmentLength(start_idx) / total_length;
-    //       // Read segment start and end statess
-    //       segmentStart2omplState(segmentStarts.segmentStarts[start_idx], segment_start_state);
-    //       if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) {
-    //         segment_end_state = to;
-    //       } else if ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
-    //                  dubins_path.getSegmentLength(start_idx + 1) == 0.0) {
-    //         segment_end_state = to;
-    //       } else {
-    //         segmentStart2omplState(segmentStarts.segmentStarts[start_idx + 1], segment_end_state);
-    //       }
-
-    //       // Append to trajectory
-    //       PathSegment trajectory;
-    //       trajectory.curvature = getSegmentCurvature(problem_setup_, dubins_path, start_idx);
-    //       ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
-    //       trajectory.flightpath_angle = dubins_path.getGamma();
-    //       double yaw;
-    //       double track_progress{0.0};
-    //       for (double t = progress; t <= progress + segment_progress; t = t + dt) {
-    //         State segment_state;
-    //         problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(
-    //             dubins_path, segmentStarts, t, state);
-    //         Eigen::Vector3d position = dubinsairplanePosition(state);
-    //         yaw = dubinsairplaneYaw(state);
-    //         Eigen::Vector3d velocity = Eigen::Vector3d(std::cos(yaw), std::sin(yaw), 0.0);
-    //         segment_state.position = position;
-    //         segment_state.velocity = velocity;
-    //         segment_state.attitude = Eigen::Vector4d(std::cos(yaw / 2.0), 0.0, 0.0, std::sin(yaw / 2.0));
-    //         trajectory.states.emplace_back(segment_state);
-    //         track_progress = t;
-    //       }
-    //       // Append end state
-    //       if (((start_idx + 1) > (segmentStarts.segmentStarts.size() - 1)) ||
-    //           ((start_idx + 1) > (segmentStarts.segmentStarts.size() - 2) &&
-    //            dubins_path.getSegmentLength(start_idx + 1) == 0.0)) {
-    //         // Append segment with last state
-    //         State end_state;
-    //         Eigen::Vector3d end_position = dubinsairplanePosition(segment_end_state);
-    //         double end_yaw = dubinsairplaneYaw(segment_end_state);
-    //         Eigen::Vector3d end_velocity = Eigen::Vector3d(std::cos(end_yaw), std::sin(end_yaw), 0.0);
-    //         end_state.position = end_position;
-    //         end_state.velocity = end_velocity;
-    //         end_state.attitude = Eigen::Vector4d(std::cos(end_yaw / 2.0), 0.0, 0.0, std::sin(end_yaw / 2.0));
-    //         trajectory.states.emplace_back(end_state);
-    //       }
-    //       progress = track_progress;
-    //       // Do not append trajectory if the segment is too short
-    //       if (trajectory.states.size() > 1) {
-    //         trajectory_segments.segments.push_back(trajectory);
-    //       }
-    //     }
-    //   }
+        // Parse Trochoidal periodic paths
+        double lengthPeriodicPath = dubins_path->periodic_path_.length();
+        auto lengthPath = dubins_path->path_.length();
+        auto lengthTotal = lengthPath + lengthPeriodicPath * dubins_path->numTurns_;
+        double t_start, t_end;
+        for (int k = 0; k < dubins_path->numTurns_; k++) {
+          /// TODO: Further divide this into segments
+          t_start = lengthPeriodicPath * k / lengthTotal;
+          t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
+          auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end);
+          if (trajectory.states.size() > 1) {
+            trajectory_segments.segments.push_back(trajectory);
+          }
+        }
+        // Path
+        t_start = lengthPeriodicPath * dubins_path->numTurns_ / lengthTotal;
+        auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, 1.0);
+        if (trajectory.states.size() > 1) {
+          trajectory_segments.segments.push_back(trajectory);
+        }
+      }
+    } else {
+      // medium altitude path
+      auto lengthTurn = std::abs(dubins_path->phi_);
+      auto lengthPath = dubins_path->path_.length();
+      auto lengthTotal = lengthTurn + lengthPath;
+      {
+        auto trajectory = extractPathSegment(from, to, *dubins_path, 0.0, lengthTurn / lengthTotal);
+        if (trajectory.states.size() > 1) {
+          trajectory_segments.segments.push_back(trajectory);
+        }
+      }
+      {
+        auto trajectory = extractPathSegment(from, to, *dubins_path, lengthTurn / lengthTotal, 1.0);
+        if (trajectory.states.size() > 1) {
+          trajectory_segments.segments.push_back(trajectory);
+        }
+      }
+    }
   }
 }
 

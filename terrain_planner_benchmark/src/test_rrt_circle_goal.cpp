@@ -278,18 +278,24 @@ class SafeCirclePlanner : public rclcpp::Node {
     } else {
       std::cout << "[TestRRTCircleGoal] Unable to find solution" << std::endl;
     }
-
+    std::cout << "Here1" << std::endl;
+    std::cout << "  size of path: " << path.segments.size() << std::endl;
     Eigen::Vector3d start_position = path.firstSegment().states.front().position;
     Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
+    std::cout << "Here2-1" << std::endl;
 
     PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
     path.prependSegment(start_loiter_path);
+
+    std::cout << "Here2-2" << std::endl;
 
     Eigen::Vector3d end_position = path.lastSegment().states.back().position;
     Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
     PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
 
     path.appendSegment(goal_loiter_path);
+
+    std::cout << "Here2" << std::endl;
 
     /// TODO: Save planned path into a csv file for plotting
     for (auto& point : path.position()) {
@@ -303,6 +309,8 @@ class SafeCirclePlanner : public rclcpp::Node {
     data_logger->setPrintHeader(true);
     std::string output_file_path = output_directory + "/" + location + "_planned_path.csv";
     data_logger->writeToFile(output_file_path);
+    std::cout << "Here3" << std::endl;
+
   }
 
   void timer_callback() {
