@@ -334,13 +334,13 @@ bool TerrainOmplRrt::getSolutionPath(std::vector<Eigen::Vector3d>& path) {
 // }
 
 PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::base::State* to,
-  ompl::base::TrochoidAirplaneStateSpace::PathType& path,
+  ompl::base::OwenStateSpace::PathType& path,
   double t_start, double t_end, double dt) const {
 ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
 PathSegment trajectory;
 for (double t = t_start; t <= t_end; t += dt) {
 // Append to trajectory
-problem_setup_->getStateSpace()->as<ompl::base::TrochoidAirplaneStateSpace>()->interpolate(from, to, t, path,
+problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t, path,
                                          state);
 State segment_state;
 segment_state.position = dubinsairplanePosition(state);
@@ -377,25 +377,25 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         // high altitude path
 
         // Parse Trochoidal periodic paths
-        double lengthPeriodicPath = dubins_path->periodic_path_.length();
-        auto lengthPath = dubins_path->path_.length();
-        auto lengthTotal = lengthPath + lengthPeriodicPath * dubins_path->numTurns_;
-        double t_start, t_end;
-        for (int k = 0; k < dubins_path->numTurns_; k++) {
-          /// TODO: Further divide this into segments
-          t_start = lengthPeriodicPath * k / lengthTotal;
-          t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
-          auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end);
-          if (trajectory.states.size() > 1) {
-            trajectory_segments.segments.push_back(trajectory);
-          }
-        }
-        // Path
-        t_start = lengthPeriodicPath * dubins_path->numTurns_ / lengthTotal;
-        auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, 1.0);
-        if (trajectory.states.size() > 1) {
-          trajectory_segments.segments.push_back(trajectory);
-        }
+        // double lengthPeriodicPath = dubins_path->periodic_path_.length();
+        // auto lengthPath = dubins_path->path_.length();
+        // auto lengthTotal = lengthPath + lengthPeriodicPath * dubins_path->numTurns_;
+        // double t_start, t_end;
+        // for (int k = 0; k < dubins_path->numTurns_; k++) {
+        //   /// TODO: Further divide this into segments
+        //   t_start = lengthPeriodicPath * k / lengthTotal;
+        //   t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
+        //   auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end);
+        //   if (trajectory.states.size() > 1) {
+        //     trajectory_segments.segments.push_back(trajectory);
+        //   }
+        // }
+        // // Path
+        // t_start = lengthPeriodicPath * dubins_path->numTurns_ / lengthTotal;
+        // auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, 1.0);
+        // if (trajectory.states.size() > 1) {
+        //   trajectory_segments.segments.push_back(trajectory);
+        // }
       }
     } else {
       // medium altitude path

@@ -54,7 +54,182 @@
 #include "terrain_planner/terrain_ompl_rrt.h"
 #include "terrain_planner/visualization.h"
 
+#include <iostream>
+#include <cmath>
+#include <ctime>
+
 using namespace std::chrono_literals;
+
+
+class SolarCalculator {
+private:
+    static constexpr double PI = 3.14159265359;
+    static constexpr double DEG_TO_RAD = PI / 180.0;
+    static constexpr double RAD_TO_DEG = 180.0 / PI;
+    
+    // WGS84 ellipsoid parameters
+    static constexpr double EQUATORIAL_RADIUS = 6378137.0;
+    static constexpr double FLATTENING = 1.0 / 298.257223563;
+    static constexpr double ECCENTRICITY_SQUARED = 2 * FLATTENING - FLATTENING * FLATTENING;
+
+public:
+    struct SolarAngles {
+        double elevation;  // Solar elevation angle (degrees)
+        double azimuth;    // Solar azimuth angle (degrees)
+        double zenith;     // Solar zenith angle (degrees)
+    };
+    
+    struct GeographicCoords {
+        double latitude;   // degrees
+        double longitude;  // degrees
+    };
+    
+    // Convert UTM coordinates to Geographic (Lat/Lon)
+    static GeographicCoords utmToGeographic(double easting, double northing, int zone, bool isNorthern = true) {
+        // UTM parameters
+        double k0 = 0.9996;  // Scale factor
+        double e1 = (1 - sqrt(1 - ECCENTRICITY_SQUARED)) / (1 + sqrt(1 - ECCENTRICITY_SQUARED));
+        
+        // Remove false easting and northing
+        double x = easting - 500000.0;
+        double y = isNorthern ? northing : northing - 10000000.0;
+        
+        // Central meridian for the zone
+        double lonOrigin = (zone - 1) * 6 - 180 + 3;  // in degrees
+        
+        // Calculate footprint latitude
+        double M = y / k0;
+        double mu = M / (EQUATORIAL_RADIUS * (1 - ECCENTRICITY_SQUARED/4 - 3*ECCENTRICITY_SQUARED*ECCENTRICITY_SQUARED/64 - 5*pow(ECCENTRICITY_SQUARED, 3)/256));
+        
+        double phi1Rad = mu + (3*e1/2 - 27*pow(e1,3)/32) * sin(2*mu) + (21*e1*e1/16 - 55*pow(e1,4)/32) * sin(4*mu) + (151*pow(e1,3)/96) * sin(6*mu);
+        
+        // Calculate latitude and longitude
+        double N1 = EQUATORIAL_RADIUS / sqrt(1 - ECCENTRICITY_SQUARED * sin(phi1Rad) * sin(phi1Rad));
+        double T1 = tan(phi1Rad) * tan(phi1Rad);
+        double C1 = ECCENTRICITY_SQUARED * cos(phi1Rad) * cos(phi1Rad) / (1 - ECCENTRICITY_SQUARED);
+        double R1 = EQUATORIAL_RADIUS * (1 - ECCENTRICITY_SQUARED) / pow(1 - ECCENTRICITY_SQUARED * sin(phi1Rad) * sin(phi1Rad), 1.5);
+        double D = x / (N1 * k0);
+        
+        double lat = phi1Rad - (N1 * tan(phi1Rad) / R1) * (D*D/2 - (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*ECCENTRICITY_SQUARED) * pow(D,4)/24 + (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*ECCENTRICITY_SQUARED - 3*C1*C1) * pow(D,6)/720);
+        
+        double lon = (D - (1 + 2*T1 + C1) * pow(D,3)/6 + (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*ECCENTRICITY_SQUARED + 24*T1*T1) * pow(D,5)/120) / cos(phi1Rad);
+        
+        GeographicCoords coords;
+        coords.latitude = lat * RAD_TO_DEG;
+        coords.longitude = lonOrigin + lon * RAD_TO_DEG;
+        
+        return coords;
+    }
+
+    // Calculate Julian Day Number
+    static double julianDay(int year, int month, int day, int hour, int minute, int second) {
+        if (month <= 2) {
+            year -= 1;
+            month += 12;
+        }
+        
+        int a = year / 100;
+        int b = 2 - a + (a / 4);
+        
+        double jd = floor(365.25 * (year + 4716)) + 
+                   floor(30.6001 * (month + 1)) + 
+                   day + b - 1524.5;
+        
+        // Add time of day
+        jd += (hour + minute/60.0 + second/3600.0) / 24.0;
+        
+        return jd;
+    }
+
+    // Calculate solar declination angle
+    static double solarDeclination(double julianDay) {
+        double n = julianDay - 2451545.0;
+        double L = fmod(280.460 + 0.9856474 * n, 360.0);
+        double g = (357.528 + 0.9856003 * n) * DEG_TO_RAD;
+        double lambda = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * DEG_TO_RAD;
+        
+        double declination = asin(sin(23.439 * DEG_TO_RAD) * sin(lambda));
+        return declination;
+    }
+
+    // Calculate equation of time
+    static double equationOfTime(double julianDay) {
+        double n = julianDay - 2451545.0;
+        double L = fmod(280.460 + 0.9856474 * n, 360.0) * DEG_TO_RAD;
+        double g = fmod(357.528 + 0.9856003 * n, 360.0) * DEG_TO_RAD;
+        double lambda = L + 1.915 * DEG_TO_RAD * sin(g) + 0.020 * DEG_TO_RAD * sin(2 * g);
+        
+        double alpha = atan2(cos(23.439 * DEG_TO_RAD) * sin(lambda), cos(lambda));
+        double E = L - alpha;
+        
+        // Normalize to [-PI, PI]
+        while (E > PI) E -= 2 * PI;
+        while (E < -PI) E += 2 * PI;
+        
+        return E * RAD_TO_DEG * 4; // Convert to minutes
+    }
+
+    // Main function to calculate solar angles
+    static SolarAngles calculateSolarAngles(double latitude, double longitude, 
+                                          int year, int month, int day, 
+                                          int hour, int minute, int second) {
+        // Convert inputs
+        latitude *= DEG_TO_RAD;
+        
+        // Calculate Julian Day
+        double jd = julianDay(year, month, day, hour, minute, second);
+        
+        // Solar declination
+        double declination = solarDeclination(jd);
+        
+        // Equation of time (in minutes)
+        double eot = equationOfTime(jd);
+        
+        // Hour angle
+        double timeOffset = eot + 4 * longitude; // longitude correction in minutes
+        double tst = hour * 60 + minute + second/60.0 + timeOffset; // True solar time in minutes
+        double hourAngle = (tst / 4.0 - 180.0) * DEG_TO_RAD; // Hour angle in radians
+        
+        // Solar elevation angle
+        double elevation = asin(sin(declination) * sin(latitude) + 
+                               cos(declination) * cos(latitude) * cos(hourAngle));
+        
+        // Solar azimuth angle
+        double azimuth = atan2(sin(hourAngle), 
+                              cos(hourAngle) * sin(latitude) - 
+                              tan(declination) * cos(latitude));
+        
+        // Convert to degrees and normalize azimuth
+        SolarAngles angles;
+        angles.elevation = elevation * RAD_TO_DEG;
+        angles.zenith = 90.0 - angles.elevation;
+        angles.azimuth = fmod(azimuth * RAD_TO_DEG + 180.0, 360.0);
+        
+        return angles;
+    }
+    
+    // Calculate solar angles from UTM coordinates
+    static SolarAngles calculateSolarAnglesUTM(double easting, double northing, int utmZone, bool isNorthern,
+                                              int year, int month, int day, 
+                                              int hour, int minute, int second) {
+        // Convert UTM to Geographic coordinates
+        GeographicCoords geoCoords = utmToGeographic(easting, northing, utmZone, isNorthern);
+        
+        // Use existing solar calculation with converted coordinates
+        return calculateSolarAngles(geoCoords.latitude, geoCoords.longitude, 
+                                  year, month, day, hour, minute, second);
+    }
+    
+    // Convenience function for current time with UTM input
+    static SolarAngles calculateCurrentSolarAnglesUTM(double easting, double northing, int utmZone, bool isNorthern = true) {
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        
+        return calculateSolarAnglesUTM(easting, northing, utmZone, isNorthern,
+                                     1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
+                                     ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+    }
+};
 
 void publishCircleSetpoints(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
                             const Eigen::Vector3d& position, const double radius) {
@@ -213,26 +388,17 @@ PathSegment getLoiterPath(Eigen::Vector3d end_position, Eigen::Vector3d end_velo
   return loiter_trajectory;
 }
 
-class SafeCirclePlanner : public rclcpp::Node {
+class ThermalGenerator : public rclcpp::Node {
  public:
-  SafeCirclePlanner() : Node("safe_circle_planner") {
-    // Initialize ROS related publishers for visualization
-    start_pos_pub = this->create_publisher<visualization_msgs::msg::Marker>("start_position", 1);
-    goal_pos_pub = this->create_publisher<visualization_msgs::msg::Marker>("goal_position", 1);
-    path_pub = this->create_publisher<nav_msgs::msg::Path>("path", 1);
+ ThermalGenerator() : Node("terrain_generator") {
     grid_map_pub = this->create_publisher<grid_map_msgs::msg::GridMap>("grid_map", 1);
-    trajectory_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("tree", 1);
 
-    timer = this->create_wall_timer(1s, std::bind(&SafeCirclePlanner::timer_callback, this));
+    timer = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&ThermalGenerator::timer_callback, this));
 
     std::string map_path = this->declare_parameter("map_path", "");
     std::string color_file_path = this->declare_parameter("color_file_path", "");
     std::string location = this->declare_parameter("location", "");
     std::string output_directory = this->declare_parameter("output_directory", "");
-
-    // Initialize data logger for recording
-    auto data_logger = std::make_shared<DataLogger>();
-    data_logger->setKeys({"x", "y", "z"});
 
     // Load terrain map from defined tif paths
     terrain_map = std::make_shared<TerrainMap>();
@@ -240,113 +406,57 @@ class SafeCirclePlanner : public rclcpp::Node {
     if (!color_file_path.empty()) {  // Load color layer if the color path is nonempty
       terrain_map->addColorFromGeotiff(color_file_path);
     }
-    terrain_map->AddLayerDistanceTransform(50.0, "distance_surface");
-    terrain_map->AddLayerDistanceTransform(120.0, "max_elevation");
-    terrain_map->AddLayerHorizontalDistanceTransform(radius, "ics_+", "distance_surface");
-    terrain_map->AddLayerHorizontalDistanceTransform(-radius, "ics_-", "max_elevation");
     terrain_map->AddLayerNormals("elevation");
-
-    // Initialize planner with loaded terrain map
-    planner = std::make_shared<TerrainOmplRrt>();
-    planner->setMap(terrain_map);
-    /// TODO: Get bounds from gridmap
-    planner->setBoundsFromMap(terrain_map->getGridMap());
-
-    const double map_width_x = terrain_map->getGridMap().getLength().x();
-    const double map_width_y = terrain_map->getGridMap().getLength().y();
-    const Eigen::Vector2d map_pos = terrain_map->getGridMap().getPosition();
-
-    start = Eigen::Vector3d(map_pos(0) + 0.4 * map_width_x, map_pos(1) - 0.35 * map_width_y, 0.0);
-    Eigen::Vector3d updated_start;
-    if (validatePosition(terrain_map, start, updated_start)) {
-      start = updated_start;
-      std::cout << "Specified start position is valid" << std::endl;
-    } else {
-      throw std::runtime_error("Specified start position is NOT valid");
-    }
-    Eigen::Vector3d goal{Eigen::Vector3d(map_pos(0) - 0.3 * map_width_x, map_pos(1) + 0.3 * map_width_y, 0.0)};
-    Eigen::Vector3d updated_goal;
-    if (validatePosition(terrain_map, goal, updated_goal)) {
-      goal = updated_goal;
-      std::cout << "Specified goal position is valid" << std::endl;
-    } else {
-      throw std::runtime_error("Specified goal position is NOT valid");
-    }
-
-    planner->setupProblem(start, goal);
-    if (planner->Solve(10.0, path)) {
-      std::cout << "[TestRRTCircleGoal] Found Solution!" << std::endl;
-    } else {
-      std::cout << "[TestRRTCircleGoal] Unable to find solution" << std::endl;
-    }
-    std::cout << "Here1" << std::endl;
-    // std::cout << "  size of path: " << path.segments.size() << std::endl;
-    // Eigen::Vector3d start_position = path.firstSegment().states.front().position;
-    // Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
-    std::cout << "Here2-1" << std::endl;
-
-    // PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
-    // path.prependSegment(start_loiter_path);
-
-    // std::cout << "Here2-2" << std::endl;
-
-    // Eigen::Vector3d end_position = path.lastSegment().states.back().position;
-    // Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
-    // PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
-
-    // path.appendSegment(goal_loiter_path);
-
-    std::cout << "Here2" << std::endl;
-
-    /// TODO: Save planned path into a csv file for plotting
-    for (auto& point : path) {
-      std::unordered_map<std::string, std::any> state;
-      state.insert(std::pair<std::string, double>("x", point(0) + 0.5 * map_width_x));
-      state.insert(std::pair<std::string, double>("y", point(1) + 0.5 * map_width_y));
-      state.insert(std::pair<std::string, double>("z", point(2)));
-      data_logger->record(state);
-    }
-
-    data_logger->setPrintHeader(true);
-    std::string output_file_path = output_directory + "/" + location + "_planned_path.csv";
-    data_logger->writeToFile(output_file_path);
-    std::cout << "Here3" << std::endl;
-
   }
 
   void timer_callback() {
     std::cout << "Publishing results" << std::endl;
+
+    start_min = start_min + 5;
+    if (start_min %60 == 0) {
+      start_min = 0;
+      start_time = (start_time + 1)%24;
+    }
+
+    // Berkeley, CA in UTM Zone 10N coordinates
+    // UC Berkeley campus center approximately:
+    double easting = 551455.0;   // UTM Easting (meters)
+    double northing = 4185540.0; // UTM Northing (meters)
+    int utmZone = 10;           // UTM Zone 10N for California Bay Area
+    bool isNorthern = true;     // Northern hemisphere
+        
+    SolarCalculator::SolarAngles ggAngles = 
+        SolarCalculator::calculateSolarAnglesUTM(easting, northing, utmZone, isNorthern,
+                                               2024, 6, 21, start_time, 0, 0); // 3 PM
+    
+    std::cout << "Golden Gate Bridge area (UTM: " << easting << "E, " << northing << "N):" << std::endl;
+    std::cout << "June 21, " << start_time << ":" << start_min << " - Elevation: " << ggAngles.elevation 
+              << "°, Azimuth: " << ggAngles.azimuth << "°" << std::endl;
+    Eigen::Vector3d solar_angle = Eigen::Vector3d(std::cos(ggAngles.azimuth/180.0*M_PI), std::sin(ggAngles.azimuth/180.0*M_PI), std::tan(ggAngles.elevation/180.0*M_PI));
+    solar_angle = solar_angle.normalized();
+    terrain_map->AddHeatFluxLayer("heatflux", solar_angle);
+
     // Repeatedly publish results
     auto message = grid_map::GridMapRosConverter::toMessage(terrain_map->getGridMap());
     grid_map_pub->publish(*message);
-    publishTrajectory(path_pub, path);
-
-    /// TODO: Publish a circle instead of a goal marker!
-    publishCircleSetpoints(start_pos_pub, start, radius);
-    publishCircleSetpoints(goal_pos_pub, goal, radius);
-    publishTree(trajectory_pub, planner->getPlannerData(), planner->getProblemSetup());
   }
 
  private:
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr start_pos_pub;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr goal_pos_pub;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub;
   rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_pub;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_pub;
   rclcpp::TimerBase::SharedPtr timer;
 
   std::shared_ptr<TerrainMap> terrain_map;
-  std::shared_ptr<TerrainOmplRrt> planner;
-  std::vector<Eigen::Vector3d> path;
-  double radius = 66.667;
-  Eigen::Vector3d start;
-  Eigen::Vector3d goal;
+
+  int start_time = 9;
+  int start_min = 0;
 };
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
-  auto safe_circle_planner = std::make_shared<SafeCirclePlanner>();
-  rclcpp::spin(safe_circle_planner);
+  auto thermal_generator = std::make_shared<ThermalGenerator>();
+    
+  rclcpp::spin(thermal_generator);
   rclcpp::shutdown();
   return 0;
 }
+

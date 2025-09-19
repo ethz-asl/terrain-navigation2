@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <!-- <node pkg="tf" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 world map 10"/> -->
-  <node pkg="terrain_planner_benchmark" exec="test_rrt_circle_goal" name="rrt_planner" output="screen">
+  <node pkg="terrain_planner_benchmark" exec="test_thermal_generator" name="rrt_planner" output="screen">
     <param name="location" value="sertig"/>
     <param name="map_path" value="/home/jaeyoung/dev/terrain-loader/downloads/berkeley_elevation.tif"/>
     <param name="color_file_path" value="/home/jaeyoung/dev/terrain-loader/downloads/berkeley_ortho.tif"/>

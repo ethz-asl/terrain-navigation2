@@ -57,6 +57,12 @@ add_executable(test_rrt_circle_goal
 target_link_libraries(test_rrt_circle_goal PUBLIC
   ${PROJECT_NAME}
 )
+add_executable(test_thermal_generator
+  src/test_sun_angle.cpp)
+
+target_link_libraries(test_thermal_generator PUBLIC
+${PROJECT_NAME}
+)
 add_subdirectory(src)
 
 include(GNUInstallDirs)
@@ -64,6 +70,7 @@ install(
   TARGETS
     terrain_planner_benchmark_node
     test_rrt_circle_goal
+    test_thermal_generator
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )

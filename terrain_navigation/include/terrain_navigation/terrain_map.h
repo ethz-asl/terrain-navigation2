@@ -63,6 +63,7 @@ class TerrainMap : public GridMapGeo {
   void addLayerSafety(const std::string& layer, const std::string& layer_name_lowerbound,
                       const std::string& layer_name_upperbound);
   void AddLayerNormals(const std::string reference_layer);
+  void AddHeatFluxLayer(const std::string reference_layer, Eigen::Vector3d solar_angle);
   bool isInCollision(const std::string& layer, const Eigen::Vector3d& position, bool is_above = true);
   double getCollisionDepth(const std::string& layer, const Eigen::Vector3d& position, bool is_above = true);
 

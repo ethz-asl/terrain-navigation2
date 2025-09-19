@@ -203,7 +203,7 @@ class TerrainOmplRrt {
   }
 
   PathSegment extractPathSegment(ompl::base::State* from, ompl::base::State* to,
-    ompl::base::TrochoidAirplaneStateSpace::PathType& path, double t_start = 0.0,
+    ompl::base::OwenStateSpace::PathType& path, double t_start = 0.0,
     double t_end = 1.0, double dt = 0.01) const;
 
  private:

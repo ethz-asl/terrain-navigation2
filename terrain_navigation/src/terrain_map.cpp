@@ -137,3 +137,23 @@ void TerrainMap::AddLayerNormals(const std::string reference_layer) {
     layer_normal_z(x, y) = normal(2);
   }
 }
+
+void TerrainMap::AddHeatFluxLayer(const std::string reference_layer, Eigen::Vector3d solar_angle) {
+  grid_map_.add("heat_flux");
+
+  double beta = 0.5;
+  double alpha = 0.5;
+  double s = 1.0;
+
+
+  grid_map::Matrix &layer_normal_x = grid_map_["elevation_normal_x"];
+  grid_map::Matrix &layer_normal_y = grid_map_["elevation_normal_y"];
+  grid_map::Matrix &layer_normal_z = grid_map_["elevation_normal_z"];
+
+  for (grid_map::GridMapIterator iterator(grid_map_); !iterator.isPastEnd(); ++iterator) {
+    const grid_map::Index index = *iterator;
+    Eigen::Vector3d normal = Eigen::Vector3d(layer_normal_x(index(0), index(1)), layer_normal_y(index(0), index(1)), layer_normal_z(index(0), index(1)));
+    grid_map_.at("heat_flux", index) = solar_angle.dot(normal) * (1 - alpha) / (1 + 1/beta);
+  }
+
+}
