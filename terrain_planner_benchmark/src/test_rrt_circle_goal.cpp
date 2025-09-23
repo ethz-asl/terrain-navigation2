@@ -213,8 +213,7 @@ PathSegment getLoiterPath(Eigen::Vector3d end_position, Eigen::Vector3d end_velo
   return loiter_trajectory;
 }
 
-void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub,
-  Path &trajectory) {
+void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub, Path& trajectory) {
   visualization_msgs::msg::MarkerArray msg;
 
   std::vector<visualization_msgs::msg::Marker> marker;
@@ -227,19 +226,19 @@ void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>
   std::vector<visualization_msgs::msg::Marker> segment_markers;
   int i = 0;
   int segment_idx = 0;
-  for (auto &segment : trajectory.segments) {
-  Eigen::Vector3d color;
-  if (segment_idx % 3 == 0) {  // Green is DUBINS_LEFT
-    color = Eigen::Vector3d(0.0, 1.0, 0.0);
-  } else if (segment_idx % 3 == 1) {  // Blue is DUBINS_RIGHT
-    color = Eigen::Vector3d(0.0, 0.0, 1.0);
-  } else {
-    color = Eigen::Vector3d(1.0, 0.0, 0.0);
-  }
-  segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(segment, i++, color));
-  segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().front(), i++, color));
-  segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().back(), i++, color));
-  segment_idx++;
+  for (auto& segment : trajectory.segments) {
+    Eigen::Vector3d color;
+    if (segment_idx % 3 == 0) {  // Green is DUBINS_LEFT
+      color = Eigen::Vector3d(0.0, 1.0, 0.0);
+    } else if (segment_idx % 3 == 1) {  // Blue is DUBINS_RIGHT
+      color = Eigen::Vector3d(0.0, 0.0, 1.0);
+    } else {
+      color = Eigen::Vector3d(1.0, 0.0, 0.0);
+    }
+    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(segment, i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().front(), i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().back(), i++, color));
+    segment_idx++;
   }
   msg.markers = segment_markers;
   pub->publish(msg);
@@ -343,7 +342,6 @@ class SafeCirclePlanner : public rclcpp::Node {
     std::string output_file_path = output_directory + "/" + location + "_planned_path.csv";
     data_logger->writeToFile(output_file_path);
     std::cout << "Here3" << std::endl;
-
   }
 
   void timer_callback() {
@@ -353,7 +351,6 @@ class SafeCirclePlanner : public rclcpp::Node {
     grid_map_pub->publish(*message);
     publishTrajectory(path_pub, path.position());
     publishPathSegments(path_segment_pub, path);
-
 
     /// TODO: Publish a circle instead of a goal marker!
     publishCircleSetpoints(start_pos_pub, start, radius);

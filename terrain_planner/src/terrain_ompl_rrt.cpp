@@ -334,19 +334,21 @@ bool TerrainOmplRrt::getSolutionPath(std::vector<Eigen::Vector3d>& path) {
 // }
 
 PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::base::State* to,
-  ompl::base::OwenStateSpace::PathType& path,
-  double t_start, double t_end, double dt) const {
-ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
-PathSegment trajectory;
-for (double t = t_start; t <= t_end; t += dt) {
-// Append to trajectory
-problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t, path,
-                                         state);
-State segment_state;
-segment_state.position = dubinsairplanePosition(state);
-trajectory.states.emplace_back(segment_state);
-}
-return trajectory;
+                                               ompl::base::OwenStateSpace::PathType& path, double t_start, double t_end,
+                                               double dt) const {
+  ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
+  PathSegment trajectory;
+  for (double t = t_start; t <= t_end; t += dt) {
+    // Append to trajectory
+    problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t, path, state);
+    State segment_state;
+    segment_state.position = dubinsairplanePosition(state);
+    double yaw = dubinsairplaneYaw(state);
+    Eigen::Vector3d velocity = Eigen::Vector3d(std::cos(yaw), std::sin(yaw), 0.0);
+    segment_state.velocity = velocity;
+    trajectory.states.emplace_back(segment_state);
+  }
+  return trajectory;
 }
 
 void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Path& trajectory_segments,
