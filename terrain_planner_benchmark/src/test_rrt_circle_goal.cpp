@@ -213,6 +213,37 @@ PathSegment getLoiterPath(Eigen::Vector3d end_position, Eigen::Vector3d end_velo
   return loiter_trajectory;
 }
 
+void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub, Path& trajectory) {
+  visualization_msgs::msg::MarkerArray msg;
+
+  std::vector<visualization_msgs::msg::Marker> marker;
+  visualization_msgs::msg::Marker mark;
+  mark.action = visualization_msgs::msg::Marker::DELETEALL;
+  marker.push_back(mark);
+  msg.markers = marker;
+  pub->publish(msg);
+
+  std::vector<visualization_msgs::msg::Marker> segment_markers;
+  int i = 0;
+  int segment_idx = 0;
+  for (auto& segment : trajectory.segments) {
+    Eigen::Vector3d color;
+    if (segment_idx % 3 == 0) {  // Green is DUBINS_LEFT
+      color = Eigen::Vector3d(0.0, 1.0, 0.0);
+    } else if (segment_idx % 3 == 1) {  // Blue is DUBINS_RIGHT
+      color = Eigen::Vector3d(0.0, 0.0, 1.0);
+    } else {
+      color = Eigen::Vector3d(1.0, 0.0, 0.0);
+    }
+    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(segment, i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().front(), i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().back(), i++, color));
+    segment_idx++;
+  }
+  msg.markers = segment_markers;
+  pub->publish(msg);
+}
+
 class SafeCirclePlanner : public rclcpp::Node {
  public:
   SafeCirclePlanner() : Node("safe_circle_planner") {
@@ -222,6 +253,7 @@ class SafeCirclePlanner : public rclcpp::Node {
     path_pub = this->create_publisher<nav_msgs::msg::Path>("path", 1);
     grid_map_pub = this->create_publisher<grid_map_msgs::msg::GridMap>("grid_map", 1);
     trajectory_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("tree", 1);
+    path_segment_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("path_segments", 1);
 
     timer = this->create_wall_timer(1s, std::bind(&SafeCirclePlanner::timer_callback, this));
 
@@ -281,14 +313,12 @@ class SafeCirclePlanner : public rclcpp::Node {
 
     Eigen::Vector3d start_position = path.firstSegment().states.front().position;
     Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
-
     PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
     path.prependSegment(start_loiter_path);
 
     Eigen::Vector3d end_position = path.lastSegment().states.back().position;
     Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
     PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
-
     path.appendSegment(goal_loiter_path);
 
     /// TODO: Save planned path into a csv file for plotting
@@ -303,6 +333,7 @@ class SafeCirclePlanner : public rclcpp::Node {
     data_logger->setPrintHeader(true);
     std::string output_file_path = output_directory + "/" + location + "_planned_path.csv";
     data_logger->writeToFile(output_file_path);
+    std::cout << "Here3" << std::endl;
   }
 
   void timer_callback() {
@@ -311,6 +342,7 @@ class SafeCirclePlanner : public rclcpp::Node {
     auto message = grid_map::GridMapRosConverter::toMessage(terrain_map->getGridMap());
     grid_map_pub->publish(*message);
     publishTrajectory(path_pub, path.position());
+    publishPathSegments(path_segment_pub, path);
 
     /// TODO: Publish a circle instead of a goal marker!
     publishCircleSetpoints(start_pos_pub, start, radius);
@@ -324,6 +356,7 @@ class SafeCirclePlanner : public rclcpp::Node {
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub;
   rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_pub;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_pub;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_segment_pub;
   rclcpp::TimerBase::SharedPtr timer;
 
   std::shared_ptr<TerrainMap> terrain_map;
