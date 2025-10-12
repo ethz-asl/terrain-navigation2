@@ -16,6 +16,7 @@
   <build_depend>geometry_msgs</build_depend>
   <build_depend>grid_map_msgs</build_depend>
   <build_depend>mavros_msgs</build_depend>
+  <build_depend>px4_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>planner_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>

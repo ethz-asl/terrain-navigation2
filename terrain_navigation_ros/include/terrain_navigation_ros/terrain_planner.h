@@ -57,7 +57,7 @@
 #include <mavros_msgs/msg/camera_image_captured.hpp>
 #include <mavros_msgs/msg/global_position_target.hpp>
 #include <mavros_msgs/msg/position_target.hpp>
-#include <mavros_msgs/msg/state.hpp>
+#include <px4_msgs/msg/vehicle_status.hpp>
 #include <mavros_msgs/msg/trajectory.hpp>
 #include <mavros_msgs/msg/waypoint_list.hpp>
 #include <mavros_msgs/srv/command_long.hpp>
@@ -96,7 +96,7 @@ class TerrainPlanner : public rclcpp::Node {
   void mavLocalPoseCallback(const geometry_msgs::msg::PoseStamped &msg);
   void mavGlobalPoseCallback(const sensor_msgs::msg::NavSatFix &msg);
   void mavtwistCallback(const geometry_msgs::msg::TwistStamped &msg);
-  void mavstateCallback(const mavros_msgs::msg::State &msg);
+  void mavstateCallback(const px4_msgs::msg::VehicleStatus &msg);
   void mavGlobalOriginCallback(const geographic_msgs::msg::GeoPointStamped &msg);
   void mavMissionCallback(const mavros_msgs::msg::WaypointList &msg);
 
@@ -195,7 +195,7 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr mavlocalpose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr mavglobalpose_sub_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr mavtwist_sub_;
-  rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr mavstate_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr mavstate_sub_;
   rclcpp::Subscription<mavros_msgs::msg::WaypointList>::SharedPtr mavmission_sub_;
   rclcpp::Subscription<geographic_msgs::msg::GeoPointStamped>::SharedPtr global_origin_sub_;
 
@@ -249,7 +249,7 @@ class TerrainPlanner : public rclcpp::Node {
   Path reference_primitive_;
   Path candidate_primitive_;
   Path rollout_primitive_;
-  mavros_msgs::msg::State current_state_;
+  px4_msgs::msg::VehicleStatus current_state_;
   std::optional<GeographicLib::LocalCartesian> enu_;
 
   std::mutex goal_mutex_;  // protects g_i

@@ -42,6 +42,7 @@ find_package(grid_map_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(planner_msgs REQUIRED)
+find_package(px4_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -88,6 +89,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${mavros_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${planner_msgs_TARGETS}
+  ${px4_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${tf2_geometry_msgs_TARGETS}
   ${visualization_msgs_TARGETS}

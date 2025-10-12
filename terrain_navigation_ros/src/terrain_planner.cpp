@@ -114,8 +114,8 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   candidate_goal_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_goal_marker", 1);
   candidate_start_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_start_marker", 1);
 
-  mavstate_sub_ = this->create_subscription<mavros_msgs::msg::State>(
-      "mavros/state", 1, std::bind(&TerrainPlanner::mavstateCallback, this, _1));
+  mavstate_sub_ = this->create_subscription<px4_msgs::msg::VehicleStatus>(
+      "fmu/out/vehicle_status", 1, std::bind(&TerrainPlanner::mavstateCallback, this, _1));
   mavmission_sub_ = this->create_subscription<mavros_msgs::msg::WaypointList>(
       "mavros/mission/waypoints", 1, std::bind(&TerrainPlanner::mavMissionCallback, this, _1));
 
@@ -292,7 +292,7 @@ void TerrainPlanner::cmdloopCallback() {
 
     /// TODO: Switch mode to planner engaged
     //! @todo(srmainwaring) current_state_.mode == "GUIDED" for AP
-    if (current_state_.mode == "OFFBOARD" || current_state_.mode == "GUIDED") {
+    if (current_state_.nav_state == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD) {
       publishPositionHistory(referencehistory_pub_, reference_position, referencehistory_vector_);
       tracking_error_ = reference_position - vehicle_position_;
       planner_enabled_ = true;
@@ -928,7 +928,7 @@ visualization_msgs::msg::Marker TerrainPlanner::getGoalMarker(const int id, cons
   return marker;
 }
 
-void TerrainPlanner::mavstateCallback(const mavros_msgs::msg::State &msg) { current_state_ = msg; }
+void TerrainPlanner::mavstateCallback(const px4_msgs::msg::VehicleStatus &msg) { current_state_ = msg; }
 
 // Notes on the conversions used in `mavGlobalOriginCallback`
 //
