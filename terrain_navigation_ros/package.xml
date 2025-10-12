@@ -42,7 +42,7 @@
 
   <exec_depend>grid_map_visualization</exec_depend>
   <exec_depend>grid_map_rviz_plugin</exec_depend>
-  <exec_depend>mav_planning_rviz</exec_depend>
+  <!-- <exec_depend>mav_planning_rviz</exec_depend> -->
   <exec_depend>planner_msgs</exec_depend>
   <exec_depend>ompl</exec_depend>
   <exec_depend>rclcpp</exec_depend>
