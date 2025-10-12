@@ -3,8 +3,6 @@
 
 #include <functional>
 #include <interactive_markers/interactive_marker_server.hpp>
-#include <mav_msgs/conversions.hpp>
-#include <mav_msgs/eigen_mav_msgs.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 namespace mav_planning_rviz {

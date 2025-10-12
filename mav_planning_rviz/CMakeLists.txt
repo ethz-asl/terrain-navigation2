@@ -35,7 +35,6 @@ find_package(rviz_ogre_vendor REQUIRED)
 find_package(rviz_rendering REQUIRED)
 find_package(tf2 REQUIRED)
 
-find_package(mav_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(planner_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -86,11 +85,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
   ${Qt5Widgets_INCLUDE_DIRS}
   ${OGRE_INCLUDE_DIRS}
-  ${mav_msgs_INCLUDE_DIRS}/..
 )
 
 target_link_libraries(${PROJECT_NAME}
-  ${mav_msgs_TARGETS}
   ${mavros_msgs_TARGETS}
   ${planner_msgs_TARGETS}
   ${std_msgs_TARGETS}
