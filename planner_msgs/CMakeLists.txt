@@ -11,6 +11,8 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   msg/NavigationStatus.msg
   msg/TerrainInfo.msg
+  msg/Path.msg
+  msg/PathSegment.msg
   srv/SetPlannerState.srv
   srv/SetService.srv
   srv/SetString.srv
