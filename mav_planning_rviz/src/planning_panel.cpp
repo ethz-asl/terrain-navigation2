@@ -225,9 +225,6 @@ void PlanningPanel::setNamespace(const QString& new_namespace) {
           node_->create_publisher<geometry_msgs::msg::PoseStamped>(namespace_.toStdString() + "/waypoint", 1);
       controller_pub_ =
           node_->create_publisher<geometry_msgs::msg::PoseStamped>(namespace_.toStdString() + "/command/pose", 1);
-      odometry_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
-          namespace_.toStdString() + "/" + odometry_topic_.toStdString(), 1,
-          std::bind(&PlanningPanel::odometryCallback, this, _1));
     }
   }
 }
@@ -308,13 +305,6 @@ void PlanningPanel::setOdometryTopic(const QString& new_odometry_topic) {
     Q_EMIT configChanged();
 
     std::string error;
-    //! @todo(srmainwaring) port to ROS 2
-    // if (ros::names::validate(namespace_.toStdString(), error))
-    {
-      odometry_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
-          namespace_.toStdString() + "/" + odometry_topic_.toStdString(), 1,
-          std::bind(&PlanningPanel::odometryCallback, this, _1));
-    }
   }
 }
 
@@ -858,19 +848,6 @@ void PlanningPanel::publishToController() {
                                                << " subscribers: " << controller_pub_->get_subscription_count());
 
   controller_pub_->publish(pose);
-}
-
-void PlanningPanel::odometryCallback(const nav_msgs::msg::Odometry& msg) {
-  RCLCPP_INFO_ONCE(node_->get_logger(), "Got odometry callback.");
-  if (align_terrain_on_load_) {
-    mav_msgs::EigenOdometry odometry;
-    mav_msgs::eigenOdometryFromMsg(msg, &odometry);
-    mav_msgs::EigenTrajectoryPoint point;
-    point.position_W = odometry.position_W;
-    point.orientation_W_B = odometry.orientation_W_B;
-    pose_widget_map_["start"]->setPose(point);
-    interactive_markers_.updateMarkerPose("start", point);
-  }
 }
 
 void PlanningPanel::plannerstateCallback(const planner_msgs::msg::NavigationStatus& msg) {

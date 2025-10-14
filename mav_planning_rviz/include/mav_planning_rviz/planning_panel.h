@@ -51,8 +51,6 @@ class PlanningPanel : public rviz_common::Panel {
 
   // Callback from ROS when the pose updates:
   void updateInteractiveMarkerPose(const mav_msgs::EigenTrajectoryPoint& pose);
-  // And when we get robot odometry:
-  void odometryCallback(const nav_msgs::msg::Odometry& msg);
 
   void plannerstateCallback(const planner_msgs::msg::NavigationStatus& msg);
 
