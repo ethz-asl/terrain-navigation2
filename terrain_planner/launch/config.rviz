@@ -433,6 +433,8 @@ Visualization Manager:
     Frame Rate: 30
   Name: root
   Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
     - Class: rviz_default_plugins/FocusCamera
@@ -464,8 +466,6 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /clicked_point
     - Class: nav2_rviz_plugins/GoalTool
-    - Class: rviz_default_plugins/Interact
-      Hide Inactive Objects: true
   Transformation:
     Current:
       Class: rviz_default_plugins/TF
