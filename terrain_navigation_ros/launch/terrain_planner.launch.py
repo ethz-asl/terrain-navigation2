@@ -69,8 +69,36 @@ def generate_launch_description():
 
     pkg_terrain_planner = get_package_share_directory("terrain_planner")
 
+    pkg_mavros = get_package_share_directory("mavros")
+    gcs_url = ""
+    tgt_system = 1
+    tgt_component = 1
+    fcu_protocol = "v2.0"
+    respawn_mavros = False
+    namespace = "mavros"
+    fcu_url = "udp://127.0.0.1:14540@14557"
+    config_yaml = os.path.join(pkg_mavros, "launch", "px4_config.yaml")
+    pluginlists_yaml = os.path.join(pkg_mavros, "launch", "px4_pluginlists.yaml")
+
     # mavros node
-    # TODO include launch description
+    mavros_px4 = Node(
+        # condition=condition_px4,
+        package="mavros",
+        executable="mavros_node",
+        namespace=namespace,
+        parameters=[
+            {"fcu_url": fcu_url},
+            {"gcs_url": gcs_url},
+            {"tgt_system": tgt_system},
+            {"tgt_component": tgt_component},
+            {"fcu_protocol": fcu_protocol},
+            pluginlists_yaml,
+            config_yaml,
+        ],
+        remappings=[],
+        respawn=respawn_mavros,
+        output="screen",
+    )
 
     # px4 posix_sitl node
     # TODO include launch description
@@ -120,6 +148,7 @@ def generate_launch_description():
                 "rviz", default_value="true", description="Open RViz."
             ),
             terrain_navigation,
-            rviz,
+            mavros_px4,
+            rviz, 
         ]
     )
