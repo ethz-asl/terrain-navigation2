@@ -5,6 +5,7 @@
 using std::placeholders::_1;
 
 GoalMarker::GoalMarker(rclcpp::Node::SharedPtr node) : node_(node), marker_server_("goal", node) {
+  set_goal_marker_.header.stamp = node_->now();
   set_goal_marker_.header.frame_id = "map";
   set_goal_marker_.name = "set_pose";
   set_goal_marker_.scale = 100.0;
@@ -21,6 +22,7 @@ GoalMarker::GoalMarker(rclcpp::Node::SharedPtr node) : node_(node), marker_serve
   control.orientation.z = 0;
   control.interaction_mode = visualization_msgs::msg::InteractiveMarkerControl::MOVE_PLANE;
   control.name = "move plane";
+  control.always_visible = true;  
   set_goal_marker_.controls.push_back(control);
 
   marker_server_.insert(set_goal_marker_);
