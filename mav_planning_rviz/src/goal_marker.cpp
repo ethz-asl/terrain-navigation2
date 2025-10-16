@@ -45,10 +45,8 @@ GoalMarker::GoalMarker(rclcpp::Node::SharedPtr node) : node_(node), marker_serve
   set_goal_marker_.controls.push_back(menu_control);
 
   // Create menu entries
-  set_goal_entry_ = menu_handler_.insert("Set as Goal",
-                                          std::bind(&GoalMarker::processMenuFeedback, this, _1));
-  set_start_entry_ = menu_handler_.insert("Set as Start",
-                                           std::bind(&GoalMarker::processMenuFeedback, this, _1));
+  set_goal_entry_ = menu_handler_.insert("Set as Goal", std::bind(&GoalMarker::processMenuFeedback, this, _1));
+  set_start_entry_ = menu_handler_.insert("Set as Start", std::bind(&GoalMarker::processMenuFeedback, this, _1));
 
   marker_server_.insert(set_goal_marker_);
   marker_server_.setCallback(set_goal_marker_.name, std::bind(&GoalMarker::processSetPoseFeedback, this, _1));

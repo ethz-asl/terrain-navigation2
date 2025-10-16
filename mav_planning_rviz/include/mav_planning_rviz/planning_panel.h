@@ -3,8 +3,8 @@
 
 #ifndef Q_MOC_RUN
 #include <QGroupBox>
-#include <mutex>
 #include <geometry_msgs/msg/pose.hpp>
+#include <mutex>
 #include <nav_msgs/msg/odometry.hpp>
 #include <planner_msgs/msg/navigation_status.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -47,8 +47,10 @@ class PlanningPanel : public rviz_common::Panel {
   void setPlannerName();
   void callPlannerService();
   void setPlanningBudgetService();
+  void setSoaringBudgetService();
   void setStartLoiterService();
   void setCurrentSegmentService();
+  void setPathService();
   void publishWaypoint();
   void terrainAlignmentStateChanged(int state);
   void EnableMaxAltitude();
@@ -85,6 +87,8 @@ class PlanningPanel : public rviz_common::Panel {
   QPushButton* set_current_loiter_button_;
   QPushButton* set_current_segment_button_;
   QPushButton* trigger_planning_button_;
+  QPushButton* trigger_soaring_button_;
+  QPushButton* update_path_button_;
   QPushButton* waypoint_button_;
   QPushButton* max_altitude_button_enable_;
   QPushButton* max_altitude_button_disable_;

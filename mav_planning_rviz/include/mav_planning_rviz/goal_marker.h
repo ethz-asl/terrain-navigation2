@@ -16,15 +16,15 @@
 
 class GoalMarker {
  public:
-  typedef std::function<void(const geometry_msgs::msg::Pose& pose)> MenuCallbackType;
+  typedef std::function<void(const geometry_msgs::msg::Pose &pose)> MenuCallbackType;
 
   GoalMarker(rclcpp::Node::SharedPtr node);
   virtual ~GoalMarker();
   Eigen::Vector3d getGoalPosition();
 
   // Set callbacks for menu actions
-  void setGoalCallback(const MenuCallbackType& callback) { set_goal_callback_ = callback; }
-  void setStartCallback(const MenuCallbackType& callback) { set_start_callback_ = callback; }
+  void setGoalCallback(const MenuCallbackType &callback) { set_goal_callback_ = callback; }
+  void setStartCallback(const MenuCallbackType &callback) { set_start_callback_ = callback; }
 
  private:
   Eigen::Vector3d toEigen(const geometry_msgs::msg::Pose &p);
