@@ -39,7 +39,7 @@ find_package(OpenCV REQUIRED)
 find_package(ompl REQUIRED)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(ODE REQUIRED ode)
+# pkg_check_modules(ODE REQUIRED ode)
 
 # Libraries
 add_library(${PROJECT_NAME}
@@ -189,13 +189,13 @@ if(BUILD_TESTING)
   )
 
   target_link_directories(${PROJECT_NAME}-test PUBLIC
-    ${ODE_LIBRARY_DIRS}
+    # ${ODE_LIBRARY_DIRS}
     ${yaml_cpp_vendor_LIBRARY_DIRS}
   )
 
   target_link_libraries(${PROJECT_NAME}-test
     ${PROJECT_NAME}
-    ${ODE_LIBRARIES}
+    # ${ODE_LIBRARIES}
   )
 endif()
 
