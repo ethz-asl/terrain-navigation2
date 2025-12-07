@@ -11,7 +11,6 @@
 #include <rviz_common/panel.hpp>
 
 #include "mav_planning_rviz/goal_marker.h"
-#include "mav_planning_rviz/planning_interactive_markers.h"
 #endif
 
 class QLineEdit;
@@ -33,11 +32,13 @@ class PlanningPanel : public rviz_common::Panel {
   virtual void save(rviz_common::Config config) const;
   virtual void onInitialize();
 
-  // Callback from ROS when the pose updates:
-  void updateInteractiveMarkerPose(const geometry_msgs::msg::Pose& pose);
   // And when we get robot odometry:
   void odometryCallback(const nav_msgs::msg::Odometry& msg);
   void plannerstateCallback(const planner_msgs::msg::NavigationStatus& msg);
+
+  // Callbacks for interactive marker menu actions:
+  void setGoalFromMarker(const geometry_msgs::msg::Pose& pose);
+  void setStartFromMarker(const geometry_msgs::msg::Pose& pose);
 
  public Q_SLOTS:
   void updatePlannerName();
@@ -45,9 +46,7 @@ class PlanningPanel : public rviz_common::Panel {
   void updatePlanningBudget();
   void setPlannerName();
   void callPlannerService();
-  void setGoalService();
   void setPlanningBudgetService();
-  void setStartService();
   void setStartLoiterService();
   void setCurrentSegmentService();
   void publishWaypoint();
@@ -83,8 +82,6 @@ class PlanningPanel : public rviz_common::Panel {
   QLineEdit* planning_budget_editor_;
   QCheckBox* terrain_align_checkbox_;
   QPushButton* planner_service_button_;
-  QPushButton* set_goal_button_;
-  QPushButton* set_start_button_;
   QPushButton* set_current_loiter_button_;
   QPushButton* set_current_segment_button_;
   QPushButton* trigger_planning_button_;
@@ -93,9 +90,6 @@ class PlanningPanel : public rviz_common::Panel {
   QPushButton* max_altitude_button_disable_;
   QPushButton* load_terrain_button_;
   std::vector<QPushButton*> set_planner_state_buttons_;
-
-  // ROS state:
-  PlanningInteractiveMarkers interactive_markers_;
 
   // QT state:
   QString planner_name_;

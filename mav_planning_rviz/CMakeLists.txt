@@ -40,7 +40,6 @@ add_library(${PROJECT_NAME} SHARED
   src/planning_panel.cpp
   src/pose_widget.cpp
   src/edit_button.cpp
-  src/planning_interactive_markers.cpp
   src/goal_marker.cpp
   ${mav_planning_rviz_plugins_headers_to_moc}
 )
