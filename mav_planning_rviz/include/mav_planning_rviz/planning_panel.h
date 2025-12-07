@@ -5,6 +5,7 @@
 //! @todo(srmainwaring) prevent race condition with async service calls
 #include <QGroupBox>
 #include <mutex>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <planner_msgs/msg/navigation_status.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -50,7 +51,7 @@ class PlanningPanel : public rviz_common::Panel {
   void registerEditButton(EditButton* button);
 
   // Callback from ROS when the pose updates:
-  void updateInteractiveMarkerPose(const mav_msgs::EigenTrajectoryPoint& pose);
+  void updateInteractiveMarkerPose(const geometry_msgs::msg::Pose& pose);
   // And when we get robot odometry:
   void odometryCallback(const nav_msgs::msg::Odometry& msg);
 
@@ -64,7 +65,7 @@ class PlanningPanel : public rviz_common::Panel {
   void setPlannerName();
   void startEditing(const std::string& id);
   void finishEditing(const std::string& id);
-  void widgetPoseUpdated(const std::string& id, mav_msgs::EigenTrajectoryPoint& pose);
+  void widgetPoseUpdated(const std::string& id, geometry_msgs::msg::Pose& pose);
   void callPlannerService();
   void callPublishPath();
   void setGoalService();

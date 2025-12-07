@@ -4,7 +4,6 @@
 #ifndef Q_MOC_RUN
 #include <QPushButton>
 #include <QWidget>
-#include <mav_msgs/eigen_mav_msgs.hpp>
 #endif
 
 namespace mav_planning_rviz {

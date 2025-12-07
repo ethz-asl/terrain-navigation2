@@ -78,7 +78,7 @@ void PlanningPanel::onInitialize() {
   interactive_markers_.setFrameId(getDisplayContext()->getFixedFrame().toStdString());
   // Initialize all the markers.
   for (const auto& kv : pose_widget_map_) {
-    mav_msgs::EigenTrajectoryPoint pose;
+    geometry_msgs::msg::Pose pose;
     kv.second->getPose(&pose);
     interactive_markers_.enableMarker(kv.first, pose);
   }
@@ -334,7 +334,7 @@ void PlanningPanel::startEditing(const std::string& id) {
   }
   // Update fixed frame (may have changed since last time):
   interactive_markers_.setFrameId(getDisplayContext()->getFixedFrame().toStdString());
-  mav_msgs::EigenTrajectoryPoint pose;
+  geometry_msgs::msg::Pose pose;
   search->second->getPose(&pose);
   interactive_markers_.enableSetPoseMarker(pose);
   interactive_markers_.disableMarker(id);
@@ -350,15 +350,15 @@ void PlanningPanel::finishEditing(const std::string& id) {
     return;
   }
   rclcpp::spin_some(node_);
-  mav_msgs::EigenTrajectoryPoint pose;
+  geometry_msgs::msg::Pose pose;
   search->second->getPose(&pose);
   interactive_markers_.enableMarker(id, pose);
 }
 
 void PlanningPanel::registerPoseWidget(PoseWidget* widget) {
   pose_widget_map_[widget->id()] = widget;
-  connect(widget, SIGNAL(poseUpdated(const std::string&, mav_msgs::EigenTrajectoryPoint&)), this,
-          SLOT(widgetPoseUpdated(const std::string&, mav_msgs::EigenTrajectoryPoint&)));
+  connect(widget, SIGNAL(poseUpdated(const std::string&, geometry_msgs::msg::Pose&)), this,
+          SLOT(widgetPoseUpdated(const std::string&, geometry_msgs::msg::Pose&)));
 }
 
 void PlanningPanel::registerEditButton(EditButton* button) {
@@ -396,7 +396,7 @@ void PlanningPanel::load(const rviz_common::Config& config) {
   }
 }
 
-void PlanningPanel::updateInteractiveMarkerPose(const mav_msgs::EigenTrajectoryPoint& pose) {
+void PlanningPanel::updateInteractiveMarkerPose(const geometry_msgs::msg::Pose& pose) {
   if (currently_editing_.empty()) {
     return;
   }
@@ -407,7 +407,7 @@ void PlanningPanel::updateInteractiveMarkerPose(const mav_msgs::EigenTrajectoryP
   search->second->setPose(pose);
 }
 
-void PlanningPanel::widgetPoseUpdated(const std::string& id, mav_msgs::EigenTrajectoryPoint& pose) {
+void PlanningPanel::widgetPoseUpdated(const std::string& id, geometry_msgs::msg::Pose& pose) {
   if (currently_editing_ == id) {
     interactive_markers_.setPose(pose);
   }
@@ -846,30 +846,26 @@ void PlanningPanel::setCurrentSegmentService() {
 }
 
 void PlanningPanel::publishToController() {
-  mav_msgs::EigenTrajectoryPoint goal_point;
-  goal_pose_widget_->getPose(&goal_point);
+  geometry_msgs::msg::Pose goal_pose;
+  goal_pose_widget_->getPose(&goal_pose);
 
-  geometry_msgs::msg::PoseStamped pose;
-  pose.header.frame_id = getDisplayContext()->getFixedFrame().toStdString();
-  mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(goal_point, &pose);
+  geometry_msgs::msg::PoseStamped pose_stamped;
+  pose_stamped.header.frame_id = getDisplayContext()->getFixedFrame().toStdString();
+  pose_stamped.pose = goal_pose;
 
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Publishing controller goal on "
                                                << controller_pub_->get_topic_name()
                                                << " subscribers: " << controller_pub_->get_subscription_count());
 
-  controller_pub_->publish(pose);
+  controller_pub_->publish(pose_stamped);
 }
 
 void PlanningPanel::odometryCallback(const nav_msgs::msg::Odometry& msg) {
   RCLCPP_INFO_ONCE(node_->get_logger(), "Got odometry callback.");
   if (align_terrain_on_load_) {
-    mav_msgs::EigenOdometry odometry;
-    mav_msgs::eigenOdometryFromMsg(msg, &odometry);
-    mav_msgs::EigenTrajectoryPoint point;
-    point.position_W = odometry.position_W;
-    point.orientation_W_B = odometry.orientation_W_B;
-    pose_widget_map_["start"]->setPose(point);
-    interactive_markers_.updateMarkerPose("start", point);
+    geometry_msgs::msg::Pose pose = msg.pose.pose;
+    pose_widget_map_["start"]->setPose(pose);
+    interactive_markers_.updateMarkerPose("start", pose);
   }
 }
 
