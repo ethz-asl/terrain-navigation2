@@ -2,13 +2,6 @@
 
 #include <functional>
 
-//! @todo(srmainwaring) enable to check headers from mav_msgs are valid
-// #include <mav_msgs/common.hpp>
-// #include <mav_msgs/conversions.hpp>
-// #include <mav_msgs/default_topics.hpp>
-// #include <mav_msgs/default_values.hpp>
-// #include <mav_msgs/eigen_mav_msgs.hpp>
-
 using std::placeholders::_1;
 
 namespace mav_planning_rviz {
@@ -69,12 +62,10 @@ void PlanningInteractiveMarkers::createMarkers() {
   marker_prototype_.controls.push_back(control);
 }
 
-void PlanningInteractiveMarkers::enableSetPoseMarker(const mav_msgs::EigenTrajectoryPoint& pose) {
+void PlanningInteractiveMarkers::enableSetPoseMarker(const geometry_msgs::msg::Pose& pose) {
   RCLCPP_INFO_STREAM(node_->get_logger(), "Enable set pose marker");
 
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(pose, &pose_stamped);
-  set_pose_marker_.pose = pose_stamped.pose;
+  set_pose_marker_.pose = pose;
 
   marker_server_.insert(set_pose_marker_);
   marker_server_.setCallback(set_pose_marker_.name,
@@ -89,23 +80,19 @@ void PlanningInteractiveMarkers::disableSetPoseMarker() {
   marker_server_.applyChanges();
 }
 
-void PlanningInteractiveMarkers::setPose(const mav_msgs::EigenTrajectoryPoint& pose) {
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(pose, &pose_stamped);
-  set_pose_marker_.pose = pose_stamped.pose;
+void PlanningInteractiveMarkers::setPose(const geometry_msgs::msg::Pose& pose) {
+  set_pose_marker_.pose = pose;
   marker_server_.setPose(set_pose_marker_.name, set_pose_marker_.pose);
   marker_server_.applyChanges();
 
-  RCLCPP_INFO_STREAM(node_->get_logger(), "Set pose: " << to_yaml(pose_stamped));
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Set pose: " << to_yaml(pose));
 }
 
 void PlanningInteractiveMarkers::processSetPoseFeedback(
     const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& feedback) {
   if (feedback->event_type == visualization_msgs::msg::InteractiveMarkerFeedback::POSE_UPDATE) {
     if (pose_updated_function_) {
-      mav_msgs::EigenTrajectoryPoint pose;
-      mav_msgs::eigenTrajectoryPointFromPoseMsg(feedback->pose, &pose);
-      pose_updated_function_(pose);
+      pose_updated_function_(feedback->pose);
 
       RCLCPP_INFO_STREAM(node_->get_logger(), "Set pose feedback: " << to_yaml(feedback->pose));
     }
@@ -114,14 +101,11 @@ void PlanningInteractiveMarkers::processSetPoseFeedback(
   marker_server_.applyChanges();
 }
 
-void PlanningInteractiveMarkers::enableMarker(const std::string& id, const mav_msgs::EigenTrajectoryPoint& pose) {
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(pose, &pose_stamped);
-
+void PlanningInteractiveMarkers::enableMarker(const std::string& id, const geometry_msgs::msg::Pose& pose) {
   auto search = marker_map_.find(id);
   if (search != marker_map_.end()) {
     // Already exists, just update the pose and enable it.
-    search->second.pose = pose_stamped.pose;
+    search->second.pose = pose;
     marker_server_.insert(search->second);
     marker_server_.applyChanges();
     return;
@@ -131,24 +115,22 @@ void PlanningInteractiveMarkers::enableMarker(const std::string& id, const mav_m
   marker_map_[id] = marker_prototype_;
   marker_map_[id].name = id;
   marker_map_[id].controls[0].markers[1].text = id;
-  marker_map_[id].pose = pose_stamped.pose;
+  marker_map_[id].pose = pose;
   marker_server_.insert(marker_map_[id]);
   marker_server_.applyChanges();
 }
 
-void PlanningInteractiveMarkers::updateMarkerPose(const std::string& id, const mav_msgs::EigenTrajectoryPoint& pose) {
+void PlanningInteractiveMarkers::updateMarkerPose(const std::string& id, const geometry_msgs::msg::Pose& pose) {
   auto search = marker_map_.find(id);
   if (search == marker_map_.end()) {
     return;
   }
 
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(pose, &pose_stamped);
-  search->second.pose = pose_stamped.pose;
-  marker_server_.setPose(id, pose_stamped.pose);
+  search->second.pose = pose;
+  marker_server_.setPose(id, pose);
   marker_server_.applyChanges();
 
-  RCLCPP_INFO_STREAM(node_->get_logger(), "Update marker pose: " << to_yaml(pose_stamped));
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Update marker pose: " << to_yaml(pose));
 }
 
 void PlanningInteractiveMarkers::disableMarker(const std::string& id) {

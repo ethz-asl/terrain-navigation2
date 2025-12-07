@@ -2,16 +2,15 @@
 #define MAV_PLANNING_RVIZ_PLANNING_INTERACTIVE_MARKERS_H_
 
 #include <functional>
+#include <geometry_msgs/msg/pose.hpp>
 #include <interactive_markers/interactive_marker_server.hpp>
-#include <mav_msgs/conversions.hpp>
-#include <mav_msgs/eigen_mav_msgs.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 namespace mav_planning_rviz {
 
 class PlanningInteractiveMarkers {
  public:
-  typedef std::function<void(const mav_msgs::EigenTrajectoryPoint& pose)> PoseUpdatedFunctionType;
+  typedef std::function<void(const geometry_msgs::msg::Pose& pose)> PoseUpdatedFunctionType;
 
   PlanningInteractiveMarkers(rclcpp::Node::SharedPtr node);
 
@@ -25,13 +24,13 @@ class PlanningInteractiveMarkers {
   void initialize();
 
   // Functions to interface with the set_pose marker:
-  void enableSetPoseMarker(const mav_msgs::EigenTrajectoryPoint& pose);
+  void enableSetPoseMarker(const geometry_msgs::msg::Pose& pose);
   void disableSetPoseMarker();
-  void setPose(const mav_msgs::EigenTrajectoryPoint& pose);
+  void setPose(const geometry_msgs::msg::Pose& pose);
 
   // Functions to interact with markers from the marker map (no controls):
-  void enableMarker(const std::string& id, const mav_msgs::EigenTrajectoryPoint& pose);
-  void updateMarkerPose(const std::string& id, const mav_msgs::EigenTrajectoryPoint& pose);
+  void enableMarker(const std::string& id, const geometry_msgs::msg::Pose& pose);
+  void updateMarkerPose(const std::string& id, const geometry_msgs::msg::Pose& pose);
   void disableMarker(const std::string& id);
 
   void processSetPoseFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& feedback);

@@ -11,31 +11,24 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>qtbase5-dev</build_depend>
 
+  <depend>eigen</depend>
+  <depend>geometry_msgs</depend>
   <depend>grid_map_core</depend>
+  <depend>grid_map_msgs</depend>
   <depend>grid_map_ros</depend>
   <depend>interactive_markers</depend>
+  <depend>mavros_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>planner_msgs</depend>
   <depend>rclcpp</depend>
   <depend>rviz_common</depend>
-  <depend>rviz_default_plugins</depend>
-  <depend>rviz_ogre_vendor</depend>
-  <depend>rviz_rendering</depend>
-  <depend>tf2</depend>
-
-  <depend>mav_msgs</depend>
-  <depend>mavros_msgs</depend>
-  <depend>planner_msgs</depend>
-  <depend>std_msgs</depend>
-  <depend>std_srvs</depend>
-  <depend>trajectory_msgs</depend>
   <depend>visualization_msgs</depend>
 
   <exec_depend>libqt5-core</exec_depend>
   <exec_depend>libqt5-gui</exec_depend>
-  <exec_depend>libqt5-opengl</exec_depend>
   <exec_depend>libqt5-widgets</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
-    <!-- <rviz plugin="${prefix}/plugin_description.xml"/> -->
   </export>
 </package>

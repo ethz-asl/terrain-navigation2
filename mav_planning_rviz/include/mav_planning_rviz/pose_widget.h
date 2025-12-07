@@ -6,7 +6,7 @@
 #include <QLineEdit>
 #include <QStringList>
 #include <QTableWidget>
-#include <mav_msgs/eigen_mav_msgs.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #endif
 
 class QLineEdit;
@@ -21,13 +21,13 @@ class PoseWidget : public QWidget {
   std::string id() const { return id_; }
   void setId(const std::string& id) { id_ = id; }
 
-  void getPose(mav_msgs::EigenTrajectoryPoint* point) const;
-  void setPose(const mav_msgs::EigenTrajectoryPoint& point);
+  void getPose(geometry_msgs::msg::Pose* pose) const;
+  void setPose(const geometry_msgs::msg::Pose& pose);
 
   virtual QSize sizeHint() const { return table_widget_->sizeHint(); }
 
  Q_SIGNALS:
-  void poseUpdated(const std::string& id, mav_msgs::EigenTrajectoryPoint& pose);
+  void poseUpdated(const std::string& id, geometry_msgs::msg::Pose& pose);
 
  public Q_SLOTS:
   void itemChanged(QTableWidgetItem* item);
