@@ -30,9 +30,8 @@ class OmplSetup : public geometric::SimpleSetup {
   void setDefaultPlanner(PlannerType planner_type = PlannerType::RRTSTAR) {
     switch (planner_type) {
       case PlannerType::AORRTC: {
-        auto planner = std::make_shared<ompl::geometric::AORRTC>(getSpaceInformation());
+        auto planner = std::make_shared<ompl::geometric::AOXRRTConnect>(getSpaceInformation());
         planner->setRange(600.0);
-        // planner->setGoalBias(goal_bias);
         setPlanner(planner);
         break;
       }
