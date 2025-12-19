@@ -20,7 +20,7 @@ class QPushButton;
 
 namespace mav_planning_rviz {
 
-enum PLANNER_STATE { HOLD = 1, NAVIGATE = 2, ROLLOUT = 3, ABORT = 4, RETURN = 5 };
+enum PLANNER_STATE { HOLD = 1, NAVIGATE = 2, SOARING = 3, ABORT = 4, RETURN = 5 };
 enum FLIGHT_STACK { FLIGHT_STACK_NONE = 0, PX4 = 1, ARDUPILOT = 2 };
 
 class PlanningPanel : public rviz_common::Panel {

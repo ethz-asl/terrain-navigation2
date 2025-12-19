@@ -594,7 +594,7 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
       }
       break;
     }
-    case PLANNER_STATE::ROLLOUT: {
+    case PLANNER_STATE::SOARING: {
       /// TODO: Get rollout primitive from active mapper
       // if (candidate_primitive_.valid()) {
       // Update reference if candidate is valid
@@ -638,7 +638,7 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
           }
           break;
         }
-        case PLANNER_STATE::ROLLOUT: {
+        case PLANNER_STATE::SOARING: {
           planner_mode_ = PLANNER_MODE::ACTIVE_MAPPING;
           next_state = query_state;
           break;
@@ -1211,7 +1211,7 @@ bool TerrainPlanner::setPlannerStateCallback(const std::shared_ptr<planner_msgs:
       break;
     }
     case (3): {
-      query_planner_state_ = PLANNER_STATE::ROLLOUT;
+      query_planner_state_ = PLANNER_STATE::SOARING;
       res->success = true;
       break;
     }

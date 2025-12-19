@@ -82,7 +82,7 @@ QGroupBox* PlanningPanel::createPlannerModeGroup() {
   QGridLayout* service_layout = new QGridLayout;
 
   set_planner_state_buttons_.push_back(new QPushButton("NAVIGATE"));
-  set_planner_state_buttons_.push_back(new QPushButton("ROLLOUT"));
+  set_planner_state_buttons_.push_back(new QPushButton("SOARING"));
   set_planner_state_buttons_.push_back(new QPushButton("ABORT"));
   set_planner_state_buttons_.push_back(new QPushButton("RETURN"));
 
@@ -427,7 +427,7 @@ void PlanningPanel::setPlannerModeServiceReturn() {
 }
 
 void PlanningPanel::setPlannerModeServiceRollout() {
-  callSetPlannerStateService("/terrain_planner/set_planner_state", ROLLOUT);
+  callSetPlannerStateService("/terrain_planner/set_planner_state", SOARING);
 }
 
 void PlanningPanel::callSetPlannerStateService(std::string service_name, const int mode) {
@@ -584,31 +584,31 @@ void PlanningPanel::plannerstateCallback(const planner_msgs::msg::NavigationStat
   switch (msg.state) {
     case PLANNER_STATE::HOLD:
       set_planner_state_buttons_[0]->setDisabled(false);  // NAVIGATE
-      set_planner_state_buttons_[1]->setDisabled(false);  // ROLLOUT
+      set_planner_state_buttons_[1]->setDisabled(false);  // SOARING
       set_planner_state_buttons_[2]->setDisabled(true);   // ABORT
       set_planner_state_buttons_[3]->setDisabled(false);  // RETURN
       break;
     case PLANNER_STATE::NAVIGATE:
       set_planner_state_buttons_[0]->setDisabled(true);   // NAVIGATE
-      set_planner_state_buttons_[1]->setDisabled(true);   // ROLLOUT
+      set_planner_state_buttons_[1]->setDisabled(true);   // SOARING
       set_planner_state_buttons_[2]->setDisabled(false);  // ABORT
       set_planner_state_buttons_[3]->setDisabled(false);  // RETURN
       break;
-    case PLANNER_STATE::ROLLOUT:
+    case PLANNER_STATE::SOARING:
       set_planner_state_buttons_[0]->setDisabled(true);   // NAVIGATE
-      set_planner_state_buttons_[1]->setDisabled(true);   // ROLLOUT
+      set_planner_state_buttons_[1]->setDisabled(true);   // SOARING
       set_planner_state_buttons_[2]->setDisabled(false);  // ABORT
       set_planner_state_buttons_[3]->setDisabled(true);   // RETURN
       break;
     case PLANNER_STATE::ABORT:
       set_planner_state_buttons_[0]->setDisabled(true);  // NAVIGATE
-      set_planner_state_buttons_[1]->setDisabled(true);  // ROLLOUT
+      set_planner_state_buttons_[1]->setDisabled(true);  // SOARING
       set_planner_state_buttons_[2]->setDisabled(true);  // ABORT
       set_planner_state_buttons_[3]->setDisabled(true);  // RETURN
       break;
     case PLANNER_STATE::RETURN:
       set_planner_state_buttons_[0]->setDisabled(true);   // NAVIGATE
-      set_planner_state_buttons_[1]->setDisabled(true);   // ROLLOUT
+      set_planner_state_buttons_[1]->setDisabled(true);   // SOARING
       set_planner_state_buttons_[2]->setDisabled(false);  // ABORT
       set_planner_state_buttons_[3]->setDisabled(true);   // RETURN
       break;

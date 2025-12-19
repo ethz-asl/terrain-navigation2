@@ -74,7 +74,7 @@
 
 enum class PLANNER_MODE { ACTIVE_MAPPING, EMERGENCY_ABORT, EXHAUSTIVE, GLOBAL, GLOBAL_REPLANNING, RANDOM, RETURN };
 
-enum class PLANNER_STATE { HOLD = 1, NAVIGATE = 2, ROLLOUT = 3, ABORT = 4, RETURN = 5 };
+enum class PLANNER_STATE { HOLD = 1, NAVIGATE = 2, SOARING = 3, ABORT = 4, RETURN = 5 };
 
 class TerrainPlanner : public rclcpp::Node {
  public:
@@ -159,8 +159,8 @@ class TerrainPlanner : public rclcpp::Node {
       case PLANNER_STATE::NAVIGATE:  // Fallthrough
         std::cout << "PLANNER_STATE::NAVIGATE" << std::endl;
         break;
-      case PLANNER_STATE::ROLLOUT:
-        std::cout << "PLANNER_STATE::ROLLOUT" << std::endl;
+      case PLANNER_STATE::SOARING:
+        std::cout << "PLANNER_STATE::SOARING" << std::endl;
         break;
       case PLANNER_STATE::ABORT:
         std::cout << "PLANNER_STATE::ABORT" << std::endl;
