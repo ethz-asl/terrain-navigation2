@@ -36,6 +36,7 @@
 #define TERRAIN_PLANNER_TERRAIN_OMPL_RRT_H
 
 #include <ompl/base/goals/GoalStates.h>
+#include <ompl/base/spaces/DubinsStateSpace.h>
 #include <ompl/base/spaces/OwenStateSpace.h>
 #include <stdio.h>
 #include <terrain_navigation/terrain_map.h>
@@ -158,8 +159,6 @@ class TerrainOmplRrt {
    */
   bool Solve(double time_budget, Path& path);
   bool Solve(double time_budget, std::vector<Eigen::Vector3d>& path);
-  // double getSegmentCurvature(std::shared_ptr<ompl::OmplSetup> problem_setup,
-  //                            fw_planning::spaces::DubinsPath& dubins_path, const size_t start_idx) const;
   void solutionPathToPath(ompl::geometric::PathGeometric path, Path& trajectory_segments,
                           double resolution = 0.05) const;
   void solutionPathToTrajectoryPoints(ompl::geometric::PathGeometric path,
@@ -202,9 +201,18 @@ class TerrainOmplRrt {
     min_altitude_ = min_altitude;
   }
 
+  /**
+   * @brief Get the curvature for a specific segment of a Dubins path
+   *
+   * @param path The Owen/Dubins path containing segment information
+   * @param segment_index Index of the segment (0, 1, or 2 for standard Dubins paths)
+   * @return double The curvature: positive for left turn, negative for right turn, zero for straight
+   */
+  double getSegmentCurvature(const ompl::base::OwenStateSpace::PathType& path, int segment_index) const;
+
   PathSegment extractPathSegment(ompl::base::State* from, ompl::base::State* to,
-                                 ompl::base::OwenStateSpace::PathType& path, double t_start = 0.0, double t_end = 1.0,
-                                 double dt = 0.01) const;
+                                 ompl::base::OwenStateSpace::PathType& path, double t_start, double t_end,
+                                 double curvature, double dt = 0.01) const;
 
  private:
   // double minimum_turning_radius_{66.67};
