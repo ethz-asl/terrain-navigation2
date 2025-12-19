@@ -78,7 +78,7 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
                                   double start_loiter_radius) {
   configureProblem();
   /// TODO: FiXME
-  double radius = start_loiter_radius;
+  double radius = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius();
   double delta_theta = 0.1;
   for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
     ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
