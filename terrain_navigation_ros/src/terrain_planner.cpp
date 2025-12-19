@@ -250,7 +250,7 @@ void TerrainPlanner::cmdloopCallback() {
     double path_progress = current_segment.getClosestPoint(vehicle_position_, reference_position, reference_tangent,
                                                            reference_curvature, 1.0E-4);
     // Publish global position setpoints in the global frame
-    ESPG map_coordinate;
+    EPSG map_coordinate;
     Eigen::Vector3d map_origin;
     terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
     /// TODO: convert reference position to global
@@ -338,7 +338,7 @@ void TerrainPlanner::plannerloopCallback() {
     terrain_map_->AddLayerHorizontalDistanceTransform(-goal_radius_, "ics_-", "max_elevation");
     terrain_map_->addLayerSafety("safety", "ics_+", "ics_-");
 
-    ESPG map_coordinate;
+    EPSG map_coordinate;
     Eigen::Vector3d map_origin;
     terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
 
@@ -710,11 +710,11 @@ void TerrainPlanner::mavGlobalPoseCallback(const sensor_msgs::msg::NavSatFix &ms
   wgs84_vehicle_position(1) = msg.longitude;
   wgs84_vehicle_position(2) = msg.altitude;
 
-  ESPG map_coordinate;
+  EPSG map_coordinate;
   Eigen::Vector3d map_origin;
   terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
 
-  if (map_coordinate == ESPG::WGS84) {
+  if (map_coordinate == EPSG::WGS84) {
     GeoConversions::forward(map_origin(0), map_origin(1), map_origin(2), map_origin.x(), map_origin.y(),
                             map_origin.z());
   }
@@ -992,11 +992,11 @@ void TerrainPlanner::mavMissionCallback(const mavros_msgs::msg::WaypointList &ms
         GeoConversions::forward(waypoint.x_lat, waypoint.y_long, waypoint_altitude, lv03_mission_loiter_center.x(),
                                 lv03_mission_loiter_center.y(), lv03_mission_loiter_center.z());
         std::cout << "mission_loiter_center_: " << lv03_mission_loiter_center.transpose() << std::endl;
-        ESPG map_coordinate;
+        EPSG map_coordinate;
         Eigen::Vector3d map_origin;
         terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
 
-        if (map_coordinate == ESPG::WGS84) {
+        if (map_coordinate == EPSG::WGS84) {
           GeoConversions::forward(map_origin(0), map_origin(1), map_origin(2), map_origin.x(), map_origin.y(),
                                   map_origin.z());
         }
@@ -1043,7 +1043,7 @@ bool TerrainPlanner::setLocationCallback(const std::shared_ptr<planner_msgs::srv
   //     double terrain_altitude = terrain_map_->getGridMap().atPosition("elevation", Eigen::Vector2d(0.0, 0.0));
   //     lv03_local_origin(2) = lv03_local_origin(2) - terrain_altitude;
   //   }
-  //   terrain_map_->setGlobalOrigin(ESPG::CH1903_LV03, lv03_local_origin);
+  //   terrain_map_->setGlobalOrigin(EPSG::CH1903_LV03, lv03_local_origin);
   // }
   if (result) {
     global_planner_->setBoundsFromMap(terrain_map_->getGridMap());
