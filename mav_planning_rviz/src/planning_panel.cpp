@@ -60,6 +60,7 @@ void PlanningPanel::onInitialize() {
   // Set up menu callbacks on the goal marker
   goal_marker_->setGoalCallback(std::bind(&PlanningPanel::setGoalFromMarker, this, _1));
   goal_marker_->setStartCallback(std::bind(&PlanningPanel::setStartFromMarker, this, _1));
+  goal_marker_->setSoaringGoalCallback(std::bind(&PlanningPanel::setSoaringGoalFromMarker, this, _1));
 
   planner_state_sub_ = rviz_ros_node->create_subscription<planner_msgs::msg::NavigationStatus>(
       "/planner_status", 1, std::bind(&PlanningPanel::plannerstateCallback, this, _1));
@@ -453,6 +454,31 @@ void PlanningPanel::callSetPlannerStateService(std::string service_name, const i
 
 void PlanningPanel::setGoalFromMarker(const geometry_msgs::msg::Pose& pose) {
   std::string service_name = "/terrain_planner/set_goal";
+
+  std::thread t([this, service_name, pose] {
+    auto client = node_->create_client<planner_msgs::srv::SetVector3>(service_name);
+    if (!client->wait_for_service(1s)) {
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Service [" << service_name << "] not available.");
+      return;
+    }
+
+    auto req = std::make_shared<planner_msgs::srv::SetVector3::Request>();
+    req->vector.x = pose.position.x;
+    req->vector.y = pose.position.y;
+    req->vector.z = -1.0;  // Negative altitude invalidates the altitude setpoint
+
+    auto result = client->async_send_request(req);
+
+    const std::lock_guard<std::mutex> lock(node_mutex_);
+    if (rclcpp::spin_until_future_complete(node_, result) != rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Call to service [" << client->get_service_name() << "] failed.");
+    }
+  });
+  t.detach();
+}
+
+void PlanningPanel::setSoaringGoalFromMarker(const geometry_msgs::msg::Pose& pose) {
+  std::string service_name = "/terrain_planner/set_soaring_goal";
 
   std::thread t([this, service_name, pose] {
     auto client = node_->create_client<planner_msgs::srv::SetVector3>(service_name);

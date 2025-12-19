@@ -25,6 +25,7 @@ class GoalMarker {
   // Set callbacks for menu actions
   void setGoalCallback(const MenuCallbackType &callback) { set_goal_callback_ = callback; }
   void setStartCallback(const MenuCallbackType &callback) { set_start_callback_ = callback; }
+  void setSoaringGoalCallback(const MenuCallbackType &callback) { set_soaring_goal_callback_ = callback; }
 
  private:
   Eigen::Vector3d toEigen(const geometry_msgs::msg::Pose &p);
@@ -42,8 +43,10 @@ class GoalMarker {
   interactive_markers::MenuHandler menu_handler_;
   interactive_markers::MenuHandler::EntryHandle set_goal_entry_;
   interactive_markers::MenuHandler::EntryHandle set_start_entry_;
+  interactive_markers::MenuHandler::EntryHandle set_soaring_goal_entry_;
   MenuCallbackType set_goal_callback_;
   MenuCallbackType set_start_callback_;
+  MenuCallbackType set_soaring_goal_callback_;
 
   Eigen::Vector3d goal_pos_{Eigen::Vector3d::Zero()};
   grid_map::GridMap map_;

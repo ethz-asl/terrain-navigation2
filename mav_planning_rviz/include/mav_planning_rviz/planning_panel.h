@@ -38,6 +38,7 @@ class PlanningPanel : public rviz_common::Panel {
 
   // Callbacks for interactive marker menu actions:
   void setGoalFromMarker(const geometry_msgs::msg::Pose& pose);
+  void setSoaringGoalFromMarker(const geometry_msgs::msg::Pose& pose);
   void setStartFromMarker(const geometry_msgs::msg::Pose& pose);
 
  public Q_SLOTS:
