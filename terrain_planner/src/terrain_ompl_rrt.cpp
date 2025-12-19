@@ -117,6 +117,46 @@ void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen:
   // std::cout << "Planner Range: " << planner_ptr->as<ompl::geometric::RRTstar>()->getRange() << std::endl;
 }
 
+void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& goal,
+                                  double start_loiter_radius, double goal_loiter_radius) {
+  configureProblem();
+  /// TODO: FiXME
+  double delta_theta = 0.1;
+  for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
+    ompl::base::ScopedState<ompl::base::OwenStateSpace> start_ompl(problem_setup_->getSpaceInformation());
+
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+        start_pos(0) + std::abs(start_loiter_radius) * std::cos(theta);
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+        start_pos(1) + std::abs(start_loiter_radius) * std::sin(theta);
+    start_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = start_pos(2);
+    double start_yaw = bool(start_loiter_radius > 0) ? theta - M_PI_2 : theta + M_PI_2;
+    wrap_pi(start_yaw);
+    start_ompl->yaw() = start_yaw;
+    problem_setup_->addStartState(start_ompl);
+  }
+
+  goal_states_ = std::make_shared<ompl::base::GoalStates>(problem_setup_->getSpaceInformation());
+  for (double theta = -M_PI; theta < M_PI; theta += (delta_theta * 2 * M_PI)) {
+    ompl::base::ScopedState<ompl::base::OwenStateSpace> goal_ompl(problem_setup_->getSpaceInformation());
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
+        goal(0) + goal_loiter_radius * std::cos(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
+        goal(1) + goal_loiter_radius * std::sin(theta);
+    goal_ompl->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[2] = goal(2);
+    double goal_yaw = bool(goal_loiter_radius > 0) ? theta - M_PI_2 : theta + M_PI_2;
+    wrap_pi(goal_yaw);
+    goal_ompl->yaw() = goal_yaw;
+    goal_states_->addState(goal_ompl);  // Add additional state for bidirectional tangents
+  }
+  problem_setup_->setGoal(goal_states_);
+
+  problem_setup_->setup();
+
+  auto planner_ptr = problem_setup_->getPlanner();
+  // std::cout << "Planner Range: " << planner_ptr->as<ompl::geometric::RRTstar>()->getRange() << std::endl;
+}
+
 void TerrainOmplRrt::setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& start_vel,
                                   const Eigen::Vector3d& goal, double goal_radius) {
   configureProblem();
