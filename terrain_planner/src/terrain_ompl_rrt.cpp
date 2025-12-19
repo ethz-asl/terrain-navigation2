@@ -351,6 +351,14 @@ PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::ba
     segment_state.velocity = velocity;
     trajectory.states.emplace_back(segment_state);
   }
+  // Append end to trajectory
+  problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t_end, path, state);
+  State segment_end_state;
+  segment_end_state.position = dubinsairplanePosition(state);
+  double end_yaw = dubinsairplaneYaw(state);
+  Eigen::Vector3d end_velocity = Eigen::Vector3d(std::cos(end_yaw), std::sin(end_yaw), 0.0);
+  segment_end_state.velocity = end_velocity;
+  trajectory.states.emplace_back(segment_end_state);
   problem_setup_->getStateSpace()->freeState(state);
   return trajectory;
 }
@@ -374,6 +382,7 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         for (int segment_idx = 0; segment_idx < 3; segment_idx++) {
           t_end = segment_idx == 2 ? 1.0 : dubins_path->path_.length_[segment_idx] / length + t_start;
           double segment_curvature = getSegmentCurvature(*dubins_path, segment_idx);
+          std::cout << "t_start: " << t_start << " t_end: " << t_end << std::endl;
           auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end, segment_curvature);
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
