@@ -22,6 +22,11 @@ target_sources(ompl_benchmark_node
   PRIVATE
     ompl_benchmark_node.cpp
 )
+target_link_libraries(ompl_benchmark_node
+  PRIVATE
+    ${PROJECT_NAME}::${PROJECT_NAME}
+    rclcpp::rclcpp
+)
 
 target_sources(test_ics
   PRIVATE

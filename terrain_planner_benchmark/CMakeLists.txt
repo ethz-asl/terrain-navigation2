@@ -19,6 +19,7 @@ find_package(ament_cmake REQUIRED)
 find_package(GDAL 3.5)
 find_package(OpenCV REQUIRED)
 find_package(ompl REQUIRED)
+find_package(rclcpp REQUIRED)
 
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_cv REQUIRED)
@@ -45,7 +46,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 
 add_executable(terrain_planner_benchmark_node)
-add_executable(ompl_benchmark_node EXCLUDE_FROM_ALL)
+add_executable(ompl_benchmark_node)
 add_executable(test_ics EXCLUDE_FROM_ALL)
 add_executable(test_rrt_replanning_node EXCLUDE_FROM_ALL)
 add_executable(surface_visualization EXCLUDE_FROM_ALL)
@@ -63,6 +64,7 @@ include(GNUInstallDirs)
 install(
   TARGETS
     terrain_planner_benchmark_node
+    ompl_benchmark_node
     test_rrt_circle_goal
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}

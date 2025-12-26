@@ -43,7 +43,7 @@
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <ompl/tools/benchmark/Benchmark.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include "terrain_planner/terrain_ompl_rrt.h"
 
@@ -98,17 +98,19 @@ bool validatePosition(grid_map::GridMap &map, const Eigen::Vector3d goal, Eigen:
 }
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "ompl_rrt_planner");
-  ros::NodeHandle nh("");
-  ros::NodeHandle nh_private("~");
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("ompl_benchmark_node");
 
-  std::string map_path, color_file_path, output_file_path;
-  nh_private.param<std::string>("map_path", map_path, "");
-  nh_private.param<std::string>("color_file_path", color_file_path, "");
-  nh_private.param<std::string>("output_file_path", output_file_path, "");
+  node->declare_parameter<std::string>("map_path", "");
+  node->declare_parameter<std::string>("color_file_path", "");
+  node->declare_parameter<std::string>("output_file_path", "");
+
+  std::string map_path = node->get_parameter("map_path").as_string();
+  std::string color_file_path = node->get_parameter("color_file_path").as_string();
+  std::string output_file_path = node->get_parameter("output_file_path").as_string();
 
   auto terrain_map = std::make_shared<TerrainMap>();
-  terrain_map->initializeFromGeotiff(map_path, false);
+  terrain_map->initializeFromGeotiff(map_path);
   if (!color_file_path.empty()) {  // Load color layer if the color path is nonempty
     terrain_map->addColorFromGeotiff(color_file_path);
   }
@@ -194,5 +196,6 @@ int main(int argc, char **argv) {
   // and goal representation
   // Everything must be set up to the point ss.solve()
   // can be called. Setting up a planner is not needed.
+  rclcpp::shutdown();
   return 0;
 }
