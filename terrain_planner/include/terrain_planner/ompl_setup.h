@@ -30,7 +30,7 @@ class OmplSetup : public geometric::SimpleSetup {
     switch (planner_type) {
       case PlannerType::RRTSTAR: {
         auto planner = std::make_shared<ompl::geometric::RRTstar>(getSpaceInformation());
-        planner->setRange(600.0);
+        planner->setRange(1200.0);
         // planner->setGoalBias(goal_bias);
         setPlanner(planner);
         break;

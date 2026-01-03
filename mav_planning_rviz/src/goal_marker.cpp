@@ -1,6 +1,8 @@
 #include "mav_planning_rviz/goal_marker.h"
 
 #include <functional>
+#include <sstream>
+#include <iomanip>
 
 using std::placeholders::_1;
 
@@ -25,6 +27,16 @@ GoalMarker::GoalMarker(rclcpp::Node::SharedPtr node) : node_(node), marker_serve
   control.name = "move plane";
   control.always_visible = true;
   set_goal_marker_.controls.push_back(control);
+
+  visualization_msgs::msg::InteractiveMarkerControl altitude_control;
+  altitude_control.orientation.w = kSqrt2Over2;
+  altitude_control.orientation.x = 0;
+  altitude_control.orientation.y = kSqrt2Over2;
+  altitude_control.orientation.z = 0;
+  altitude_control.interaction_mode = visualization_msgs::msg::InteractiveMarkerControl::MOVE_AXIS;
+  altitude_control.name = "move altitude";
+  altitude_control.always_visible = true;
+  set_goal_marker_.controls.push_back(altitude_control);
 
   // Add menu control for right-click context menu
   visualization_msgs::msg::InteractiveMarkerControl menu_control;
@@ -56,6 +68,8 @@ GoalMarker::GoalMarker(rclcpp::Node::SharedPtr node) : node_(node), marker_serve
 
   grid_map_sub_ = node_->create_subscription<grid_map_msgs::msg::GridMap>(
       "/grid_map", 1, std::bind(&GoalMarker::GridmapCallback, this, _1));
+
+  altitude_text_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("goal_altitude_text", 1);
 }
 
 GoalMarker::~GoalMarker() = default;
@@ -87,14 +101,22 @@ void GoalMarker::processSetPoseFeedback(
     const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr &feedback) {
   const std::lock_guard<std::mutex> lock(goal_mutex_);
   if (feedback->event_type == visualization_msgs::msg::InteractiveMarkerFeedback::POSE_UPDATE) {
-    set_goal_marker_.pose = feedback->pose;
-    Eigen::Vector2d marker_position_2d(set_goal_marker_.pose.position.x, set_goal_marker_.pose.position.y);
+    Eigen::Vector2d marker_position_2d(feedback->pose.position.x, feedback->pose.position.y);
     if (map_.isInside(marker_position_2d)) {
       double elevation = map_.atPosition("elevation", marker_position_2d);
-      set_goal_marker_.pose.position.z = elevation + 200.0;
+      // Calculate terrain-relative altitude from feedback position
+      double relative_altitude = feedback->pose.position.z - elevation;
+      // Enforce minimum and maximum relative altitude
+      if (relative_altitude < min_relative_altitude_) {
+        relative_altitude = min_relative_altitude_;
+      } else if (relative_altitude > max_relative_altitude_) {
+        relative_altitude = max_relative_altitude_;
+      }
+      set_goal_marker_.pose = feedback->pose;
+      set_goal_marker_.pose.position.z = elevation + relative_altitude;
       marker_server_.setPose(set_goal_marker_.name, set_goal_marker_.pose);
-      goal_pos_ = toEigen(feedback->pose);
-      goal_pos_(2) = elevation + 100.0;
+      goal_pos_ = toEigen(set_goal_marker_.pose);
+      updateAltitudeText(relative_altitude);
     }
   }
   marker_server_.applyChanges();
@@ -105,13 +127,49 @@ void GoalMarker::GridmapCallback(const grid_map_msgs::msg::GridMap &msg) {
   grid_map::GridMapRosConverter::fromMessage(msg, map_);
   Eigen::Vector2d marker_position_2d(set_goal_marker_.pose.position.x, set_goal_marker_.pose.position.y);
   if (map_.isInside(marker_position_2d)) {
-    // set_goal_marker_.pose.position.z
     double elevation = map_.atPosition("elevation", marker_position_2d);
-    if (elevation + 200.0 > set_goal_marker_.pose.position.z) {
-      set_goal_marker_.pose.position.z = elevation + 200.0;
+    // Enforce minimum and maximum terrain-relative altitude
+    double min_altitude = elevation + min_relative_altitude_;
+    double max_altitude = elevation + max_relative_altitude_;
+    if (set_goal_marker_.pose.position.z < min_altitude) {
+      set_goal_marker_.pose.position.z = min_altitude;
       marker_server_.setPose(set_goal_marker_.name, set_goal_marker_.pose);
-      goal_pos_(2) = elevation + 100.0;
+    } else if (set_goal_marker_.pose.position.z > max_altitude) {
+      set_goal_marker_.pose.position.z = max_altitude;
+      marker_server_.setPose(set_goal_marker_.name, set_goal_marker_.pose);
     }
+    goal_pos_ = toEigen(set_goal_marker_.pose);
+    double relative_altitude = set_goal_marker_.pose.position.z - elevation;
+    updateAltitudeText(relative_altitude);
   }
   marker_server_.applyChanges();
+}
+
+void GoalMarker::updateAltitudeText(double relative_altitude) {
+  visualization_msgs::msg::Marker text_marker;
+  text_marker.header.frame_id = "map";
+  text_marker.header.stamp = node_->now();
+  text_marker.ns = "goal_altitude";
+  text_marker.id = 0;
+  text_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+  text_marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // Position the text above the marker
+  text_marker.pose.position.x = set_goal_marker_.pose.position.x + 60.0;
+  text_marker.pose.position.y = set_goal_marker_.pose.position.y + 60.0;
+  text_marker.pose.position.z = set_goal_marker_.pose.position.z + 60.0;
+  text_marker.pose.orientation.w = 1.0;
+
+  text_marker.scale.z = 20.0;  // Text height
+
+  text_marker.color.r = 0.0;
+  text_marker.color.g = 0.5;
+  text_marker.color.b = 1.0;
+  text_marker.color.a = 1.0;
+
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(0) << relative_altitude << " m AGL";
+  text_marker.text = oss.str();
+
+  altitude_text_pub_->publish(text_marker);
 }

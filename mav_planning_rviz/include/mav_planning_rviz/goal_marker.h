@@ -3,6 +3,7 @@
 #define MAV_PLANNING_RVIZ_GOAL_MARKER_H_
 
 #include <visualization_msgs/msg/interactive_marker_feedback.h>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <Eigen/Dense>
 #include <functional>
@@ -32,9 +33,11 @@ class GoalMarker {
   void processSetPoseFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr &feedback);
   void processMenuFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr &feedback);
   void GridmapCallback(const grid_map_msgs::msg::GridMap &msg);
+  void updateAltitudeText(double relative_altitude);
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_sub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr altitude_text_pub_;
 
   interactive_markers::InteractiveMarkerServer marker_server_;
   visualization_msgs::msg::InteractiveMarker set_goal_marker_;
@@ -51,6 +54,8 @@ class GoalMarker {
   Eigen::Vector3d goal_pos_{Eigen::Vector3d::Zero()};
   grid_map::GridMap map_;
   std::mutex goal_mutex_;
+  double min_relative_altitude_{50.0};
+  double max_relative_altitude_{500.0};
 };
 
 #endif  // MAV_PLANNING_RVIZ_GOAL_MARKER_H_
