@@ -337,10 +337,15 @@ double TerrainOmplRrt::getSegmentCurvature(const ompl::base::OwenStateSpace::Pat
 
 PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::base::State* to,
                                                ompl::base::OwenStateSpace::PathType& path, double t_start, double t_end,
-                                               double curvature, double dt) const {
+                                               double curvature, double horizontal_length, double dt) const {
   ompl::base::State* state = problem_setup_->getStateSpace()->allocState();
   PathSegment trajectory;
   trajectory.curvature = curvature;
+
+  // Get start position for flightpath_angle calculation
+  problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t_start, path, state);
+  Eigen::Vector3d start_position = dubinsairplanePosition(state);
+
   for (double t = t_start; t <= t_end; t += dt) {
     // Append to trajectory
     problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->interpolate(from, to, t, path, state);
@@ -359,6 +364,16 @@ PathSegment TerrainOmplRrt::extractPathSegment(ompl::base::State* from, ompl::ba
   Eigen::Vector3d end_velocity = Eigen::Vector3d(std::cos(end_yaw), std::sin(end_yaw), 0.0);
   segment_end_state.velocity = end_velocity;
   trajectory.states.emplace_back(segment_end_state);
+
+  // Compute flightpath_angle from altitude change over 2D Dubins path length
+  Eigen::Vector3d end_position = segment_end_state.position;
+  double dz = end_position(2) - start_position(2);
+  if (horizontal_length > 1e-6) {
+    trajectory.flightpath_angle = std::atan2(dz, horizontal_length);
+  } else {
+    trajectory.flightpath_angle = 0.0;
+  }
+
   problem_setup_->getStateSpace()->freeState(state);
   return trajectory;
 }
@@ -382,8 +397,11 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         for (int segment_idx = 0; segment_idx < 3; segment_idx++) {
           t_end = segment_idx == 2 ? 1.0 : dubins_path->path_.length_[segment_idx] / length + t_start;
           double segment_curvature = getSegmentCurvature(*dubins_path, segment_idx);
+          // Actual horizontal length = turnRadius * normalized length
+          double segment_horizontal_length = dubins_path->turnRadius_ * dubins_path->path_.length_[segment_idx];
           std::cout << "t_start: " << t_start << " t_end: " << t_end << std::endl;
-          auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end, segment_curvature);
+          auto trajectory =
+              extractPathSegment(from, to, *dubins_path, t_start, t_end, segment_curvature, segment_horizontal_length);
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
           }
@@ -393,8 +411,10 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         // high altitude path
 
         // Parse Trochoidal periodic paths
+        // lengthPeriodicPath is already in actual units (2*pi*turnRadius)
         double lengthPeriodicPath = 2.0 * M_PI * dubins_path->turnRadius_;
-        auto lengthPath = dubins_path->path_.length();
+        // lengthPath needs to be scaled by turnRadius
+        auto lengthPath = dubins_path->turnRadius_ * dubins_path->path_.length();
         auto lengthTotal = lengthPath + lengthPeriodicPath * dubins_path->numTurns_;
         double t_start, t_end;
         // Curvature for the periodic helical turns - direction based on first segment type
@@ -402,7 +422,8 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         for (int k = 0; k < static_cast<int>(dubins_path->numTurns_); k++) {
           t_start = lengthPeriodicPath * k / lengthTotal;
           t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
-          auto trajectory = extractPathSegment(from, to, *dubins_path, t_start, t_end, periodic_curvature);
+          auto trajectory =
+              extractPathSegment(from, to, *dubins_path, t_start, t_end, periodic_curvature, lengthPeriodicPath);
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
           }
@@ -410,10 +431,12 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
         // Remaining Dubins path - extract each segment individually
         double dubins_t_start = lengthPeriodicPath * dubins_path->numTurns_ / lengthTotal;
         for (int segment_idx = 0; segment_idx < 3; segment_idx++) {
-          double segment_length_ratio = dubins_path->path_.length_[segment_idx] / lengthTotal;
+          double segment_horizontal_length = dubins_path->turnRadius_ * dubins_path->path_.length_[segment_idx];
+          double segment_length_ratio = segment_horizontal_length / lengthTotal;
           double dubins_t_end = segment_idx == 2 ? 1.0 : dubins_t_start + segment_length_ratio;
           double segment_curvature = getSegmentCurvature(*dubins_path, segment_idx);
-          auto trajectory = extractPathSegment(from, to, *dubins_path, dubins_t_start, dubins_t_end, segment_curvature);
+          auto trajectory = extractPathSegment(from, to, *dubins_path, dubins_t_start, dubins_t_end, segment_curvature,
+                                               segment_horizontal_length);
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
           }
@@ -422,14 +445,14 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
       }
     } else {
       // medium altitude path
-      auto lengthTurn = std::abs(dubins_path->phi_);
-      auto lengthPath = dubins_path->path_.length();
+      auto lengthTurn = dubins_path->turnRadius_ * std::abs(dubins_path->phi_);
+      auto lengthPath = dubins_path->turnRadius_ * dubins_path->path_.length();
       auto lengthTotal = lengthTurn + lengthPath;
       {
         // Initial turn curvature is determined by sign of phi_, using actual turn radius
         double initial_turn_curvature = (dubins_path->phi_ > 0.0 ? 1.0 : -1.0) / dubins_path->turnRadius_;
-        auto trajectory =
-            extractPathSegment(from, to, *dubins_path, 0.0, lengthTurn / lengthTotal, initial_turn_curvature);
+        auto trajectory = extractPathSegment(from, to, *dubins_path, 0.0, lengthTurn / lengthTotal,
+                                             initial_turn_curvature, lengthTurn);
         if (trajectory.states.size() > 1) {
           trajectory_segments.segments.push_back(trajectory);
         }
@@ -437,10 +460,12 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
       // Remaining Dubins path - extract each segment individually
       double dubins_t_start = lengthTurn / lengthTotal;
       for (int segment_idx = 0; segment_idx < 3; segment_idx++) {
-        double segment_length_ratio = dubins_path->path_.length_[segment_idx] / lengthTotal;
+        double segment_horizontal_length = dubins_path->turnRadius_ * dubins_path->path_.length_[segment_idx];
+        double segment_length_ratio = segment_horizontal_length / lengthTotal;
         double dubins_t_end = segment_idx == 2 ? 1.0 : dubins_t_start + segment_length_ratio;
         double segment_curvature = getSegmentCurvature(*dubins_path, segment_idx);
-        auto trajectory = extractPathSegment(from, to, *dubins_path, dubins_t_start, dubins_t_end, segment_curvature);
+        auto trajectory = extractPathSegment(from, to, *dubins_path, dubins_t_start, dubins_t_end, segment_curvature,
+                                             segment_horizontal_length);
         if (trajectory.states.size() > 1) {
           trajectory_segments.segments.push_back(trajectory);
         }

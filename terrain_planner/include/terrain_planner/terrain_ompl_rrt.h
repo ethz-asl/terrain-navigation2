@@ -212,7 +212,7 @@ class TerrainOmplRrt {
 
   PathSegment extractPathSegment(ompl::base::State* from, ompl::base::State* to,
                                  ompl::base::OwenStateSpace::PathType& path, double t_start, double t_end,
-                                 double curvature, double dt = 0.01) const;
+                                 double curvature, double horizontal_length, double dt = 0.01) const;
 
  private:
   // double minimum_turning_radius_{66.67};
