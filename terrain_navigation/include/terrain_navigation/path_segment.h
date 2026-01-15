@@ -164,7 +164,7 @@ class PathSegment {
     return theta;
   }
 
-  double getLength(double epsilon = 1.0E-3) {
+  double getLength(double epsilon = 1.0E-3) const {
     double length{0.0};
     Eigen::Vector3d segment_start = states.front().position;
     Eigen::Vector3d segment_end = states.back().position;

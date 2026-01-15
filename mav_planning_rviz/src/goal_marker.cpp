@@ -163,7 +163,7 @@ void GoalMarker::updateAltitudeText(double relative_altitude) {
   text_marker.scale.z = 20.0;  // Text height
 
   text_marker.color.r = 0.0;
-  text_marker.color.g = 0.5;
+  text_marker.color.g = 1.0;
   text_marker.color.b = 1.0;
   text_marker.color.a = 1.0;
 

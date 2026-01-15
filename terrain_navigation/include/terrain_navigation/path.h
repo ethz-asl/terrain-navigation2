@@ -181,7 +181,7 @@ class Path {
    * @param start_idx start index of the segment the total length should be considered (default 0)
    * @return double length of the trajectory segment
    */
-  double getLength(const int start_idx = 0) {
+  double getLength(const int start_idx = 0) const {
     double length{0.0};
     for (size_t i = start_idx; i < segments.size(); i++) {
       length += segments[i].getLength();

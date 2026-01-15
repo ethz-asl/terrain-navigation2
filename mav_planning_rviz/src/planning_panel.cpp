@@ -465,7 +465,7 @@ void PlanningPanel::setGoalFromMarker(const geometry_msgs::msg::Pose& pose) {
     auto req = std::make_shared<planner_msgs::srv::SetVector3::Request>();
     req->vector.x = pose.position.x;
     req->vector.y = pose.position.y;
-    req->vector.z = -1.0;  // Negative altitude invalidates the altitude setpoint
+    req->vector.z = pose.position.z;  // Negative altitude invalidates the altitude setpoint
 
     auto result = client->async_send_request(req);
 
@@ -515,7 +515,7 @@ void PlanningPanel::setStartFromMarker(const geometry_msgs::msg::Pose& pose) {
     auto req = std::make_shared<planner_msgs::srv::SetVector3::Request>();
     req->vector.x = pose.position.x;
     req->vector.y = pose.position.y;
-    req->vector.z = -1.0;  // Negative altitude invalidates the altitude setpoint
+    req->vector.z = pose.position.z;  // Negative altitude invalidates the altitude setpoint
 
     auto result = client->async_send_request(req);
 
