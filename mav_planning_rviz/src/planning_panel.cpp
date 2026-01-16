@@ -8,7 +8,6 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <functional>
-#include <mavros_msgs/srv/set_mode.hpp>
 #include <planner_msgs/srv/set_planner_state.hpp>
 #include <planner_msgs/srv/set_service.hpp>
 #include <planner_msgs/srv/set_string.hpp>
@@ -245,70 +244,9 @@ void PlanningPanel::load(const rviz_common::Config& config) {
 
 void PlanningPanel::callPlannerService() {
   std::string service_name = "/mavros/set_mode";
-
-  std::thread t([this, service_name] {
-    auto client = node_->create_client<mavros_msgs::srv::SetMode>(service_name);
-    if (!client->wait_for_service(1s)) {
-      RCLCPP_WARN_STREAM(node_->get_logger(), "Service [" << service_name << "] not available.");
-      return;
-    }
-
-    auto req = std::make_shared<mavros_msgs::srv::SetMode::Request>();
-    switch (flight_stack_) {
-      case PX4:
-        req->custom_mode = "OFFBOARD";
-        break;
-      case ARDUPILOT:
-        req->custom_mode = "GUIDED";
-        break;
-      case FLIGHT_STACK_NONE:
-      default:
-        req->custom_mode = "NONE";
-        break;
-    }
-
-    auto result = client->async_send_request(req);
-
-    const std::lock_guard<std::mutex> lock(node_mutex_);
-    if (rclcpp::spin_until_future_complete(node_, result) != rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_ERROR_STREAM(node_->get_logger(), "Call to service [" << client->get_service_name() << "] failed.");
-    }
-  });
-  t.detach();
 }
 
 void PlanningPanel::publishWaypoint() {
-  std::string service_name = "/mavros/set_mode";
-
-  std::thread t([this, service_name] {
-    auto client = node_->create_client<mavros_msgs::srv::SetMode>(service_name);
-    if (!client->wait_for_service(1s)) {
-      RCLCPP_WARN_STREAM(node_->get_logger(), "Service [" << service_name << "] not available.");
-      return;
-    }
-
-    auto req = std::make_shared<mavros_msgs::srv::SetMode::Request>();
-    switch (flight_stack_) {
-      case PX4:
-        req->custom_mode = "AUTO.RTL";
-        break;
-      case ARDUPILOT:
-        req->custom_mode = "RTL";
-        break;
-      case FLIGHT_STACK_NONE:
-      default:
-        req->custom_mode = "NONE";
-        break;
-    }
-
-    auto result = client->async_send_request(req);
-
-    const std::lock_guard<std::mutex> lock(node_mutex_);
-    if (rclcpp::spin_until_future_complete(node_, result) != rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_ERROR_STREAM(node_->get_logger(), "Call to service [" << client->get_service_name() << "] failed.");
-    }
-  });
-  t.detach();
 }
 
 void PlanningPanel::EnableMaxAltitude() { setMaxAltitudeConstrant(true); }

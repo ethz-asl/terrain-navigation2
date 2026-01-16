@@ -21,7 +21,6 @@ find_package(grid_map_core REQUIRED)
 find_package(grid_map_msgs REQUIRED)
 find_package(grid_map_ros REQUIRED)
 find_package(interactive_markers REQUIRED)
-find_package(mavros_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(planner_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -65,7 +64,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME}
   Eigen3::Eigen
   ${geometry_msgs_TARGETS}
-  ${mavros_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${planner_msgs_TARGETS}
   ${visualization_msgs_TARGETS}

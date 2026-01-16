@@ -17,7 +17,6 @@
   <depend>grid_map_msgs</depend>
   <depend>grid_map_ros</depend>
   <depend>interactive_markers</depend>
-  <depend>mavros_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>planner_msgs</depend>
   <depend>rclcpp</depend>
