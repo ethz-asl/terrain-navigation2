@@ -151,6 +151,8 @@ class Path {
         segment.reached = true;
       }
     }
+    // Return the last segment if all segments have been reached
+    return segments.back();
   }
 
   int getCurrentSegmentIndex(const Eigen::Vector3d &position) {
