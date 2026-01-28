@@ -177,7 +177,7 @@ class PathSegment {
       // Compute closest point on a Arc segment
       Eigen::Vector2d segment_start_2d = segment_start.head(2);
       Eigen::Vector2d segment_end_2d = segment_end.head(2);
-      if ((segment_start_2d - segment_end_2d).norm() < epsilon) {
+      if (is_periodic) {
         // Return full circle length
         length = 2 * M_PI * (1 / std::abs(curvature));
       } else {
@@ -190,8 +190,11 @@ class PathSegment {
         Eigen::Vector2d end_vector = (segment_end_2d - arc_center_2d).normalized();
 
         double psi = std::atan2(end_vector(1), end_vector(0)) - std::atan2(start_vector(1), start_vector(0));
-        wrap_2pi(psi);
-        length = (1 / std::abs(curvature)) * psi;
+        // Check which direction we need to subtract
+        if (psi * curvature < 0) {
+          psi += std::copysign(2.0 * M_PI, curvature);
+        }
+        length = (1 / std::abs(curvature)) * std::abs(psi);
       }
     }
     return length;
