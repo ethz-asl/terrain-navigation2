@@ -177,7 +177,7 @@ class PathSegment {
       // Compute closest point on a Arc segment
       Eigen::Vector2d segment_start_2d = segment_start.head(2);
       Eigen::Vector2d segment_end_2d = segment_end.head(2);
-      if ((segment_start_2d - segment_end_2d).norm() < epsilon) {
+      if (is_periodic) {
         // Return full circle length
         length = 2 * M_PI * (1 / std::abs(curvature));
       } else {
