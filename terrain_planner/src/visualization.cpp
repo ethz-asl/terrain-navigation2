@@ -108,7 +108,8 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
   ompl::base::ScopedState<ompl::base::OwenStateSpace> vertex(problem_setup->getSpaceInformation());
   ompl::base::ScopedState<ompl::base::OwenStateSpace> neighbor_vertex(problem_setup->getSpaceInformation());
   size_t marker_idx{0};
-  auto dubins_ss = std::make_shared<ompl::base::OwenStateSpace>();
+  // Use the state space from the problem setup to ensure correct interpolation parameters
+  auto dubins_ss = problem_setup->getStateSpace()->as<ompl::base::OwenStateSpace>();
   for (size_t i = 0; i < planner_data->numVertices(); i++) {
     visualization_msgs::msg::Marker marker;
     marker.header.stamp = rclcpp::Clock().now();
@@ -148,8 +149,8 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
         neighbor_vertex = planner_data->getVertex(edge).getState();
         // points.push_back(toMsg(Eigen::Vector3d(vertex[0], vertex[1], vertex[2])));
         // points.push_back(toMsg(Eigen::Vector3d(neighbor_vertex[0], neighbor_vertex[1], neighbor_vertex[2])));
-        ompl::base::State* state = dubins_ss->allocState();
-        ompl::base::State* from = dubins_ss->allocState();
+        ompl::base::State* state = problem_setup->getStateSpace()->allocState();
+        ompl::base::State* from = problem_setup->getStateSpace()->allocState();
         from->as<ompl::base::OwenStateSpace::StateType>()
             ->as<ompl::base::RealVectorStateSpace::StateType>(0)
             ->values[0] = vertex[0];
@@ -161,7 +162,7 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
             ->values[2] = vertex[2];
         from->as<ompl::base::OwenStateSpace::StateType>()->yaw() = vertex[3];
 
-        ompl::base::State* to = dubins_ss->allocState();
+        ompl::base::State* to = problem_setup->getStateSpace()->allocState();
         to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[0] =
             neighbor_vertex[0];
         to->as<ompl::base::OwenStateSpace::StateType>()->as<ompl::base::RealVectorStateSpace::StateType>(0)->values[1] =
@@ -170,6 +171,9 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
             neighbor_vertex[2];
         to->as<ompl::base::OwenStateSpace::StateType>()->yaw() = neighbor_vertex[3];
         if (dubins_ss->equalStates(from, to)) {
+          problem_setup->getStateSpace()->freeState(state);
+          problem_setup->getStateSpace()->freeState(from);
+          problem_setup->getStateSpace()->freeState(to);
           continue;
         }
         std::vector<geometry_msgs::msg::Point> points;
@@ -188,6 +192,10 @@ void publishTree(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::Shared
         }
         points.push_back(tf2::toMsg(Eigen::Vector3d(neighbor_vertex[0], neighbor_vertex[1], neighbor_vertex[2])));
         edge_marker.points = points;
+        // Free allocated states
+        problem_setup->getStateSpace()->freeState(state);
+        problem_setup->getStateSpace()->freeState(from);
+        problem_setup->getStateSpace()->freeState(to);
         edge_marker.action = visualization_msgs::msg::Marker::ADD;
         edge_marker.pose.orientation.w = 1.0;
         edge_marker.pose.orientation.x = 0.0;
