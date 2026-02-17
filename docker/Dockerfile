@@ -46,6 +46,11 @@ RUN apt-get update \
 
 FROM all-deps AS build
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libode-dev \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /root/ros2_ws/src/ethz-asl/terrain-navigation
 COPY . .
 WORKDIR /root/ros2_ws/
