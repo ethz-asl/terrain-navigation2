@@ -475,7 +475,7 @@ void TerrainPlanner::plannerloopCallback() {
             int min_distance_index = -1;
             for (int idx = 0; idx < static_cast<int>(rally_points.size()); idx++) {
               double radial_error =
-                  std::abs((end_position - rally_points[idx]).norm() - dubins_state_space_->getMinTurnRadius());
+                  std::abs((end_position - rally_points[idx]).norm() - dubins_state_space_->getBounds().low[0]);
               if (radial_error < min_distance_error) {
                 min_distance_index = idx;
                 min_distance_error = radial_error;

@@ -72,7 +72,7 @@ class TerrainOmplRrt {
    */
   void setupProblem(const Eigen::Vector3d& start_pos, const Eigen::Vector3d& goal) {
     this->setupProblem(start_pos, goal,
-                       problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getMinTurnRadius());
+                       problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getBounds().low[0]);
   };
 
   /**

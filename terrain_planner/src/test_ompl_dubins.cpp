@@ -94,7 +94,7 @@ void getDubinsShortestPath(const Eigen::Vector3d start_pos, const double start_y
       std::cout << "interpolated state had nans!" << std::endl;
       std::cout << "  - start_yaw: " << start_yaw << " goal_yaw: " << goal_yaw << std::endl;
       //! @todo(srmainwaring) unused - prob intend for display.
-      // const double curvature = 1 / dubins_ss->getMinTurnRadius();
+      // const double curvature = 1 / dubins_ss->getBounds().low[0];
       // const double dx = (goal_pos(0) - start_pos(0)) * curvature;
       // const double dy = (goal_pos(1) - start_pos(1)) * curvature;
       // const double dz = (goal_pos(2) - start_pos(2)) * curvature;
