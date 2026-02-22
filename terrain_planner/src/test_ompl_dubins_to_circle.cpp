@@ -137,7 +137,7 @@ double getDubinsTangentPoint(std::shared_ptr<ompl::base::OwenStateSpace>& dubins
   //  [1] Chen, Zheng. "On Dubins paths to a circle." Automatica 117 (2020): 108996.
   //  [2] Manyam, Satyanarayana G., et al. "Shortest Dubins path to a circle." AIAA Scitech 2019 Forum. 2019.
   // The problem boils down on calculating the final yaw of the tangent point
-  const double curvature = 1 / dubins_ss->getBounds().low[0];
+  const double curvature = 1 / dubins_ss->getMinTurnRadius();
   double minimum_turn_radius = 1 / curvature;  // r
 
   Eigen::Vector3d error_pos = goal_pos - start_pos;
