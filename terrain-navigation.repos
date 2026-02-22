@@ -7,3 +7,7 @@ repositories:
     type: git
     url: https://github.com/ethz-asl/terrain-navigation.git
     version: ros2
+  ompl:
+    type: git
+    url: https://github.com/ompl/ompl.git
+    version: b2d39b4
