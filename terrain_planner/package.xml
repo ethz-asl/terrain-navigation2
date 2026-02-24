@@ -16,6 +16,7 @@
   <build_depend>grid_map_ros</build_depend>
   <!-- <build_depend>grid_map_pcl</build_depend> -->
   <build_depend>ompl</build_depend>
+  <build_depend>opende</build_depend>
   <build_depend>rclcpp</build_depend>
   <build_depend>rclpy</build_depend>
   <build_depend>terrain_navigation</build_depend>
@@ -35,6 +36,7 @@
   <exec_depend>grid_map_rviz_plugin</exec_depend>
   <exec_depend>grid_map_visualization</exec_depend>
   <exec_depend>ompl</exec_depend>
+  <exec_depend>opende</exec_depend>
   <exec_depend>rclcpp</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>terrain_navigation</exec_depend>

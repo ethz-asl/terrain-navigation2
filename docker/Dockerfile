@@ -21,7 +21,6 @@ RUN apt-get update \
         ros-dev-tools \
         python3-pip \
         python3-colcon-mixin \
-        libode-dev \
     && colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml \
     && colcon mixin update default \
     && rosdep init \
