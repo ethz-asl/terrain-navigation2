@@ -51,7 +51,7 @@
 
 class TerrainOmplRrt {
  public:
-  TerrainOmplRrt(const double minTurnRadius = 66.7, const double maxPitchAngle = 0.3 * M_PI);
+  TerrainOmplRrt(const double minTurnRadius = 66.7, const double maxPitchAngle = 0.3 * M_PI, const double minPitchAngle = std::numeric_limits<double>::quiet_NaN());
   TerrainOmplRrt(const ompl::base::StateSpacePtr& space);
   virtual ~TerrainOmplRrt();
 

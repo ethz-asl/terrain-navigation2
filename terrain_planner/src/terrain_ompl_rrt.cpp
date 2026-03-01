@@ -35,9 +35,14 @@
 #include "terrain_planner/terrain_ompl_rrt.h"
 
 // Constructor
-TerrainOmplRrt::TerrainOmplRrt(const double minTurnRadius, const double maxPitchAngle) {
-  problem_setup_ = std::make_shared<ompl::OmplSetup>(
+TerrainOmplRrt::TerrainOmplRrt(const double minTurnRadius, const double maxPitchAngle, const double minPitchAngle) {
+  if (!std::isfinite(minPitchAngle)) {
+    problem_setup_ = std::make_shared<ompl::OmplSetup>(
       ompl::base::StateSpacePtr(new ompl::base::OwenStateSpace(minTurnRadius, maxPitchAngle)));
+  } else {
+    problem_setup_ = std::make_shared<ompl::OmplSetup>(
+      ompl::base::StateSpacePtr(new ompl::base::OwenStateSpace(minTurnRadius, maxPitchAngle, minPitchAngle)));
+  }
 }
 TerrainOmplRrt::TerrainOmplRrt(const ompl::base::StateSpacePtr& space) {
   problem_setup_ = std::make_shared<ompl::OmplSetup>(space);
