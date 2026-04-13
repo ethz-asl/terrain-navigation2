@@ -272,13 +272,13 @@ class SafeCirclePlanner : public rclcpp::Node {
     if (!color_file_path.empty()) {  // Load color layer if the color path is nonempty
       terrain_map->addColorFromGeotiff(color_file_path);
     }
-    terrain_map->AddLayerDistanceTransform(50.0, "distance_surface");
-    terrain_map->AddLayerDistanceTransform(120.0, "max_elevation");
+    terrain_map->AddLayerDistanceTransform(10.0, "distance_surface");
+    terrain_map->AddLayerDistanceTransform(80.0, "max_elevation");
     terrain_map->AddLayerHorizontalDistanceTransform(radius, "ics_+", "distance_surface");
     terrain_map->AddLayerHorizontalDistanceTransform(-radius, "ics_-", "max_elevation");
 
     // Initialize planner with loaded terrain map
-    planner = std::make_shared<TerrainOmplRrt>();
+    planner = std::make_shared<TerrainOmplRrt>(50, 0.15);
     planner->setMap(terrain_map);
     /// TODO: Get bounds from gridmap
     planner->setBoundsFromMap(terrain_map->getGridMap());
@@ -295,7 +295,7 @@ class SafeCirclePlanner : public rclcpp::Node {
     } else {
       throw std::runtime_error("Specified start position is NOT valid");
     }
-    Eigen::Vector3d goal{Eigen::Vector3d(map_pos(0) - 0.3 * map_width_x, map_pos(1) + 0.3 * map_width_y, 0.0)};
+    Eigen::Vector3d goal{Eigen::Vector3d(map_pos(0) - 0.4 * map_width_x, map_pos(1) + 0.4 * map_width_y, 0.0)};
     Eigen::Vector3d updated_goal;
     if (validatePosition(terrain_map, goal, updated_goal)) {
       goal = updated_goal;
@@ -305,7 +305,7 @@ class SafeCirclePlanner : public rclcpp::Node {
     }
 
     planner->setupProblem(start, goal);
-    if (planner->Solve(10.0, path)) {
+    if (planner->Solve(20.0, path)) {
       std::cout << "[TestRRTCircleGoal] Found Solution!" << std::endl;
     } else {
       std::cout << "[TestRRTCircleGoal] Unable to find solution" << std::endl;

@@ -692,10 +692,10 @@ visualization_msgs::msg::Marker trajectory2MarkerMsg(PathSegment &trajectory, co
   marker.pose.orientation.y = 0.0;
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0;
-  marker.scale.x = 2.0;
-  marker.scale.y = 2.0;
-  marker.scale.z = 2.0;
-  marker.color.a = 1.0;
+  marker.scale.x = 10.0;
+  marker.scale.y = 10.0;
+  marker.scale.z = 10.0;
+  marker.color.a = 0.9;
   marker.color.r = color.x();
   marker.color.g = color.y();
   marker.color.b = color.z();
