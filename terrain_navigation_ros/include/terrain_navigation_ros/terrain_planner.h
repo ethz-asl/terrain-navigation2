@@ -48,8 +48,6 @@
 #include <terrain_planner/visualization.h>
 
 #include <Eigen/Dense>
-#include <GeographicLib/Geocentric.hpp>
-#include <GeographicLib/LocalCartesian.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <grid_map_msgs/msg/grid_map.hpp>
 #include <mutex>
@@ -231,7 +229,6 @@ class TerrainPlanner : public rclcpp::Node {
   Path candidate_primitive_;
   Path rollout_primitive_;
   int current_state_;
-  std::optional<GeographicLib::LocalCartesian> enu_;
 
   std::mutex goal_mutex_;  // protects g_i
 
