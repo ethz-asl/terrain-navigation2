@@ -110,7 +110,7 @@ def generate_launch_description():
             ),
             # terrain_planner arguments
             DeclareLaunchArgument(
-                "location", default_value="sacramento", description="Location."
+                "location", default_value="davosdorf", description="Location."
             ),
             DeclareLaunchArgument(
                 "minimum_turn_radius",

@@ -57,7 +57,7 @@ void publishVehiclePose(rclcpp::Publisher<visualization_msgs::msg::Marker>::Shar
   //! @todo(srmainwaring) understand why the mesh is not displayed.
   //! @note https://answers.ros.org/question/282745/rviz-doesnt-load-dae-mesh-cannot-locate-it/
   // marker.mesh_resource = "package://terrain_planner/" + mesh_resource_path;
-  marker.mesh_resource = "file://" + mesh_resource_path;
+  marker.mesh_resource = "package://" + mesh_resource_path;
   marker.scale.x = 10.0;
   marker.scale.y = 10.0;
   marker.scale.z = 10.0;

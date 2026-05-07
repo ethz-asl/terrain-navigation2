@@ -172,48 +172,14 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
 }
 
 void TerrainPlanner::init() {
-  //! @todo(srmainwaring) needs to be multi-threaded and use separate executors?
-
-  // double plannerloop_dt_ = 2.0;
-  // ros::TimerOptions plannerlooptimer_options(
-  //     ros::Duration(plannerloop_dt_),
-  //     boost::bind(&TerrainPlanner::plannerloopCallback, this, _1),
-  //     &plannerloop_queue_);
-  // plannerloop_timer_ = nh_.createTimer(plannerlooptimer_options);  // Define timer for constant loop rate
-  //
-  // plannerloop_spinner_.reset(new ros::AsyncSpinner(1, &plannerloop_queue_));
-  // plannerloop_spinner_->start();
-
   auto plannerloop_dt_ = 2s;
   plannerloop_timer_ = this->create_wall_timer(plannerloop_dt_, std::bind(&TerrainPlanner::plannerloopCallback, this));
-  // plannerloop_executor_.add_node(plannerloop_node_);
-  // plannerloop_executor_.spin();
-
-  // double statusloop_dt_ = 0.5;
-  // ros::TimerOptions statuslooptimer_options(
-  //     ros::Duration(statusloop_dt_), boost::bind(&TerrainPlanner::statusloopCallback, this, _1), &statusloop_queue_);
-  // statusloop_timer_ = nh_.createTimer(statuslooptimer_options);  // Define timer for constant loop rate
-  //
-  // statusloop_spinner_.reset(new ros::AsyncSpinner(1, &statusloop_queue_));
-  // statusloop_spinner_->start();
 
   auto statusloop_dt_ = 500ms;
   statusloop_timer_ = this->create_wall_timer(statusloop_dt_, std::bind(&TerrainPlanner::statusloopCallback, this));
-  // statusloop_executor_.add_node(statusloop_node_);
-  // statusloop_executor_.spin();
-
-  // double cmdloop_dt_ = 0.1;
-  // ros::TimerOptions cmdlooptimer_options(ros::Duration(cmdloop_dt_),
-  //                                        boost::bind(&TerrainPlanner::cmdloopCallback, this, _1), &cmdloop_queue_);
-  // cmdloop_timer_ = nh_.createTimer(cmdlooptimer_options);  // Define timer for constant loop rate
-  //
-  // cmdloop_spinner_.reset(new ros::AsyncSpinner(1, &cmdloop_queue_));
-  // cmdloop_spinner_->start();
 
   auto cmdloop_dt_ = 100ms;
   cmdloop_timer_ = this->create_wall_timer(cmdloop_dt_, std::bind(&TerrainPlanner::cmdloopCallback, this));
-  // cmdloop_executor_.add_node(cmdloop_node_);
-  // cmdloop_executor_.spin();
 }
 
 Eigen::Vector4d TerrainPlanner::rpy2quaternion(double roll, double pitch, double yaw) {
@@ -333,7 +299,7 @@ void TerrainPlanner::statusloopCallback() {
 
 void TerrainPlanner::plannerloopCallback() {
   const std::lock_guard<std::mutex> lock(goal_mutex_);
-  if (local_origin_received_ && !map_initialized_) {
+  if (!map_initialized_) {
     //! @todo(srmainwaring) consolidate duplicate code from here and TerrainPlanner::setLocationCallback
     std::cout << "[TerrainPlanner] Local origin received, loading map" << std::endl;
     map_initialized_ = terrain_map_->Load(map_path_, map_color_path_);

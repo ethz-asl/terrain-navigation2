@@ -271,7 +271,6 @@ class TerrainPlanner : public rclcpp::Node {
   double planner_time_budget_{30.0};
   double mission_loiter_radius_{66.67};
   double start_loiter_radius_{66.67};
-  bool local_origin_received_{false};
   bool map_initialized_{false};
   bool planner_enabled_{false};
   bool problem_updated_{true};
