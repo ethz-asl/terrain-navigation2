@@ -44,7 +44,23 @@ RUN apt-get update \
     && rosdep install --from-paths src --ignore-src -r -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Ensure build tooling and required deps exist (Boost, Eigen, CMake, compiler)
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    git cmake build-essential \
+    libboost-all-dev libeigen3-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Build OMPL from the pinned commit (already checked out by vcs import)
+WORKDIR /root/ros2_ws/src/ompl
+RUN git submodule update --init --recursive \
+  && mkdir -p build/Release \
+  && cd build/Release \
+  && cmake ../.. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+  && make -j"$(nproc)" \
+  && make install
+
 FROM all-deps AS build
+
 
 WORKDIR /root/ros2_ws/src/ethz-asl/terrain-navigation
 COPY . .
