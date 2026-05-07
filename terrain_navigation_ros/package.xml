@@ -12,10 +12,8 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>geographic_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>grid_map_msgs</build_depend>
-  <build_depend>mavros_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>planner_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -29,8 +27,6 @@
   <build_depend>grid_map_msgs</build_depend>
   <build_depend>grid_map_pcl</build_depend>
   <build_depend>grid_map_ros</build_depend>
-  <build_depend>mavros</build_depend>
-  <build_depend>mavros_extras</build_depend>
   <build_depend>ompl</build_depend>
   <build_depend>planner_msgs</build_depend>
   <build_depend>rclcpp</build_depend>

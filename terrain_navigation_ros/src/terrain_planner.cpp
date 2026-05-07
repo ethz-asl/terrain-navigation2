@@ -47,11 +47,6 @@
 #include <functional>
 #include <grid_map_msgs/msg/grid_map.hpp>
 #include <grid_map_ros/GridMapRosConverter.hpp>
-#include <mavros_msgs/msg/command_code.hpp>
-#include <mavros_msgs/msg/global_position_target.hpp>
-#include <mavros_msgs/msg/position_target.hpp>
-#include <mavros_msgs/msg/trajectory.hpp>
-#include <mavros_msgs/srv/command_long.hpp>
 #include <memory>
 #include <planner_msgs/msg/navigation_status.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
@@ -92,6 +87,10 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   RCLCPP_INFO_STREAM(this->get_logger(), "alt_control_max_climb_rate: " << max_climb_rate_control_);
   RCLCPP_INFO_STREAM(this->get_logger(), "cruise_speed: " << cruise_speed_);
 
+  // px4 namespace parameter
+  px4_namespace_ = this->declare_parameter("px4_namespace", "");
+  RCLCPP_INFO_STREAM(this->get_logger(), "px4_namespace: " << px4_namespace_);
+
   // quality of service settings
   rclcpp::QoS latching_qos(1);
   latching_qos.reliable().transient_local();
@@ -114,29 +113,28 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   candidate_goal_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_goal_marker", 1);
   candidate_start_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_start_marker", 1);
 
-  mavstate_sub_ = this->create_subscription<mavros_msgs::msg::State>(
-      "mavros/state", 1, std::bind(&TerrainPlanner::mavstateCallback, this, _1));
-  mavmission_sub_ = this->create_subscription<mavros_msgs::msg::WaypointList>(
-      "mavros/mission/waypoints", 1, std::bind(&TerrainPlanner::mavMissionCallback, this, _1));
+  mavstate_sub_ = this->create_subscription<px4_msgs::msg::VehicleStatus>(
+      px4_namespace_ + "/fmu/out/vehicle_status_v1", mavros_position_qos,
+      std::bind(&TerrainPlanner::mavstateCallback, this, _1));
+  setpoint_triplet_sub_ = this->create_subscription<px4_msgs::msg::PositionSetpointTriplet>(
+      px4_namespace_ + "/fmu/out/position_setpoint_triplet", mavros_position_qos,
+      std::bind(&TerrainPlanner::setpointTripletCallback, this, _1));
 
-  global_position_setpoint_pub_ =
-      this->create_publisher<mavros_msgs::msg::GlobalPositionTarget>("mavros/setpoint_raw/global", 1);
+  global_setpoint_pub_ = this->create_publisher<px4_msgs::msg::GlobalTrajectorySetpoint>(
+      px4_namespace_ + "/fmu/in/global_trajectory_setpoint", 1);
+  offboard_mode_pub_ =
+      this->create_publisher<px4_msgs::msg::OffboardControlMode>(px4_namespace_ + "/fmu/in/offboard_control_mode", 1);
   vehicle_pose_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("vehicle_pose_marker", 1);
   planner_status_pub_ = this->create_publisher<planner_msgs::msg::NavigationStatus>("planner_status", 1);
   path_segment_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("path_segments", 1);
   tree_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("tree", 1);
 
-  mavlocalpose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "mavros/local_position/pose", mavros_position_qos, std::bind(&TerrainPlanner::mavLocalPoseCallback, this, _1));
-  mavglobalpose_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
-      "mavros/global_position/global", mavros_position_qos,
+  mavlocalpose_sub_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+      px4_namespace_ + "/fmu/out/vehicle_local_position", mavros_position_qos,
+      std::bind(&TerrainPlanner::mavLocalPoseCallback, this, _1));
+  mavglobalpose_sub_ = this->create_subscription<px4_msgs::msg::VehicleGlobalPosition>(
+      px4_namespace_ + "/fmu/out/vehicle_global_position", mavros_position_qos,
       std::bind(&TerrainPlanner::mavGlobalPoseCallback, this, _1));
-  mavtwist_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-      "mavros/local_position/velocity_local", mavros_position_qos,
-      std::bind(&TerrainPlanner::mavtwistCallback, this, _1));
-  global_origin_sub_ = this->create_subscription<geographic_msgs::msg::GeoPointStamped>(
-      "mavros/global_position/gp_origin", mavros_position_qos,
-      std::bind(&TerrainPlanner::mavGlobalOriginCallback, this, _1));
 
   setlocation_serviceserver_ = this->create_service<planner_msgs::srv::SetString>(
       "/terrain_planner/set_location", std::bind(&TerrainPlanner::setLocationCallback, this, _1, _2));
@@ -156,8 +154,6 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
       "/terrain_planner/trigger_planning", std::bind(&TerrainPlanner::setPlanningCallback, this, _1, _2));
   updatepath_serviceserver_ = this->create_service<planner_msgs::srv::SetVector3>(
       "/terrain_planner/set_path", std::bind(&TerrainPlanner::setPathCallback, this, _1, _2));
-
-  msginterval_serviceclient_ = this->create_client<mavros_msgs::srv::CommandLong>("mavros/cmd/command");
 
   // create terrain map
   terrain_map_ = std::make_shared<TerrainMap>();
@@ -287,12 +283,10 @@ void TerrainPlanner::cmdloopCallback() {
       curvature_reference = (1 - portion) * reference_curvature + portion * next_segment_curvature;
     }
 
-    publishGlobalPositionSetpoints(global_position_setpoint_pub_, latitude, longitude, altitude, velocity_reference,
+    publishGlobalPositionSetpoints(global_setpoint_pub_, latitude, longitude, altitude, velocity_reference,
                                    curvature_reference);
 
-    /// TODO: Switch mode to planner engaged
-    //! @todo(srmainwaring) current_state_.mode == "GUIDED" for AP
-    if (current_state_.mode == "OFFBOARD" || current_state_.mode == "GUIDED") {
+    if (current_state_ == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD) {
       publishPositionHistory(referencehistory_pub_, reference_position, referencehistory_vector_);
       tracking_error_ = reference_position - vehicle_position_;
       planner_enabled_ = true;
@@ -300,6 +294,17 @@ void TerrainPlanner::cmdloopCallback() {
       tracking_error_ = Eigen::Vector3d::Zero();
       planner_enabled_ = false;
     }
+
+    px4_msgs::msg::OffboardControlMode offboard_mode_msg;
+    offboard_mode_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+    offboard_mode_msg.position = true;
+    offboard_mode_msg.velocity = true;
+    offboard_mode_msg.acceleration = true;
+    offboard_mode_msg.attitude = false;
+    offboard_mode_msg.body_rate = false;
+    offboard_mode_msg.thrust_and_torque = false;
+    offboard_mode_msg.direct_actuator = false;
+    offboard_mode_pub_->publish(offboard_mode_msg);
   }
 
   planner_msgs::msg::NavigationStatus msg;
@@ -351,40 +356,6 @@ void TerrainPlanner::plannerloopCallback() {
       std::cout << "[TerrainPlanner]   - Failed to load map: " << map_path_ << std::endl;
     }
     return;
-  }
-  if (!local_origin_received_) {
-    std::cout << "Requesting global origin messages" << std::endl;
-
-    auto request_global_origin_req = std::make_shared<mavros_msgs::srv::CommandLong::Request>();
-    request_global_origin_req->command = mavros_msgs::msg::CommandCode::REQUEST_MESSAGE;
-    request_global_origin_req->param1 = 49;
-
-    while (!msginterval_serviceclient_->wait_for_service(1s)) {
-      RCLCPP_WARN_STREAM(this->get_logger(),
-                         "Service [" << msginterval_serviceclient_->get_service_name() << "] not available.");
-      return;
-    }
-
-    bool received_response = false;
-    using ServiceResponseFuture = rclcpp::Client<mavros_msgs::srv::CommandLong>::SharedFuture;
-    auto response_received_callback = [&received_response](ServiceResponseFuture future) {
-      auto result = future.get();
-      received_response = true;
-    };
-    auto future = msginterval_serviceclient_->async_send_request(request_global_origin_req, response_received_callback);
-
-    return;
-
-    // auto future = msginterval_serviceclient_->async_send_request(request_global_origin_req);
-
-    // if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) !=
-    // rclcpp::FutureReturnCode::SUCCESS)
-    // {
-    //   RCLCPP_ERROR_STREAM(this->get_logger(), "Call to service ["
-    //       << msginterval_serviceclient_->get_service_name()
-    //       << "] failed.");
-    // }
-    // return;
   }
 
   // planner_profiler_->tic();
@@ -697,38 +668,38 @@ void TerrainPlanner::publishTrajectory(std::vector<Eigen::Vector3d> trajectory) 
   vehicle_path_pub_->publish(msg);
 }
 
-void TerrainPlanner::mavLocalPoseCallback(const geometry_msgs::msg::PoseStamped &msg) {
-  vehicle_attitude_(0) = msg.pose.orientation.w;
-  vehicle_attitude_(1) = msg.pose.orientation.x;
-  vehicle_attitude_(2) = msg.pose.orientation.y;
-  vehicle_attitude_(3) = msg.pose.orientation.z;
+void TerrainPlanner::mavLocalPoseCallback(const px4_msgs::msg::VehicleLocalPosition &msg) {
+  // NED->ENU Conversions
+  vehicle_velocity_ = Eigen::Vector3d(msg.vy, msg.vx, -msg.vz);
+
+  // if (!local_origin_received_) {
+  /// TODO: Keep track of reset counters
+  local_origin_latitude_ = msg.ref_lat;
+  local_origin_longitude_ = msg.ref_lon;
+  local_origin_altitude_ = msg.ref_alt;
+  // }
 }
 
-void TerrainPlanner::mavGlobalPoseCallback(const sensor_msgs::msg::NavSatFix &msg) {
+void TerrainPlanner::mavGlobalPoseCallback(const px4_msgs::msg::VehicleGlobalPosition &msg) {
   Eigen::Vector3d wgs84_vehicle_position;
-  wgs84_vehicle_position(0) = msg.latitude;
-  wgs84_vehicle_position(1) = msg.longitude;
-  wgs84_vehicle_position(2) = msg.altitude;
+  wgs84_vehicle_position(0) = msg.lat;
+  wgs84_vehicle_position(1) = msg.lon;
+  wgs84_vehicle_position(2) = msg.alt;
 
   EPSG map_coordinate;
   Eigen::Vector3d map_origin;
   terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
-
-  if (map_coordinate == EPSG::WGS84) {
-    GeoConversions::forward(map_origin(0), map_origin(1), map_origin(2), map_origin.x(), map_origin.y(),
-                            map_origin.z());
+  if (map_coordinate == EPSG::CH1903_LV03) {
+    Eigen::Vector3d transformed_coordinates;
+    // LV03 / WGS84 ellipsoid
+    GeoConversions::forward(wgs84_vehicle_position(0), wgs84_vehicle_position(1), wgs84_vehicle_position(2),
+                            transformed_coordinates.x(), transformed_coordinates.y(), transformed_coordinates.z());
+    vehicle_position_ = transformed_coordinates - map_origin;
+  } else {
+    // Gdal conversions
+    Eigen::Vector3d transformed_coordinates = transformCoordinates(EPSG::WGS84, map_coordinate, wgs84_vehicle_position);
+    vehicle_position_ = transformed_coordinates - map_origin;
   }
-
-  Eigen::Vector3d transformed_coordinates;
-  // LV03 / WGS84 ellipsoid
-  GeoConversions::forward(wgs84_vehicle_position(0), wgs84_vehicle_position(1), wgs84_vehicle_position(2),
-                          transformed_coordinates.x(), transformed_coordinates.y(), transformed_coordinates.z());
-  vehicle_position_ = transformed_coordinates - map_origin;
-}
-
-void TerrainPlanner::mavtwistCallback(const geometry_msgs::msg::TwistStamped &msg) {
-  vehicle_velocity_ = toEigen(msg.twist.linear);
-  // mavRate_ = toEigen(msg.twist.angular);
 }
 
 void TerrainPlanner::MapPublishOnce(rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr pub,
@@ -758,52 +729,23 @@ void TerrainPlanner::publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Pat
 }
 
 void TerrainPlanner::publishGlobalPositionSetpoints(
-    rclcpp::Publisher<mavros_msgs::msg::GlobalPositionTarget>::SharedPtr pub, const double latitude,
+    rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub, const double latitude,
     const double longitude, const double altitude, const Eigen::Vector3d &velocity, const double curvature) {
-  using namespace mavros_msgs;
   // Publishes position setpoints sequentially as trajectory setpoints
-  mavros_msgs::msg::GlobalPositionTarget msg;
-  msg.header.stamp = this->get_clock()->now();
-  msg.coordinate_frame = mavros_msgs::msg::GlobalPositionTarget::FRAME_GLOBAL_REL_ALT;
-  msg.type_mask =
-      mavros_msgs::msg::GlobalPositionTarget::IGNORE_YAW | mavros_msgs::msg::GlobalPositionTarget::IGNORE_YAW_RATE;
-  msg.latitude = latitude;
-  msg.longitude = longitude;
-  msg.altitude = altitude - local_origin_altitude_;
-  msg.velocity.x = velocity(0);
-  msg.velocity.y = velocity(1);
-  msg.velocity.z = velocity(2);
+  px4_msgs::msg::GlobalTrajectorySetpoint msg;
+  msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+  msg.lat = latitude;
+  msg.lon = longitude;
+  msg.alt = altitude;
+  msg.velocity[0] = velocity(1);
+  msg.velocity[1] = velocity(0);
+  msg.velocity[2] = -velocity(2);
   auto curvature_vector = Eigen::Vector3d(0.0, 0.0, -curvature);
   auto projected_velocity = Eigen::Vector3d(velocity(0), velocity(1), 0.0);
   Eigen::Vector3d lateral_acceleration = projected_velocity.squaredNorm() * curvature_vector.cross(projected_velocity);
-  msg.acceleration_or_force.x = lateral_acceleration(0);
-  msg.acceleration_or_force.y = lateral_acceleration(1);
-  msg.acceleration_or_force.z = lateral_acceleration(2);
-
-  pub->publish(msg);
-}
-
-void TerrainPlanner::publishPositionSetpoints(rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr pub,
-                                              const Eigen::Vector3d &position, const Eigen::Vector3d &velocity,
-                                              const double curvature) {
-  using namespace mavros_msgs;
-  // Publishes position setpoints sequentially as trajectory setpoints
-  mavros_msgs::msg::PositionTarget msg;
-  msg.header.stamp = this->get_clock()->now();
-  msg.coordinate_frame = mavros_msgs::msg::PositionTarget::FRAME_LOCAL_NED;
-  msg.type_mask = mavros_msgs::msg::PositionTarget::IGNORE_YAW | mavros_msgs::msg::PositionTarget::IGNORE_YAW_RATE;
-  msg.position.x = position(0);
-  msg.position.y = position(1);
-  msg.position.z = position(2);
-  msg.velocity.x = velocity(0);
-  msg.velocity.y = velocity(1);
-  msg.velocity.z = velocity(2);
-  auto curvature_vector = Eigen::Vector3d(0.0, 0.0, -curvature);
-  auto projected_velocity = Eigen::Vector3d(velocity(0), velocity(1), 0.0);
-  Eigen::Vector3d lateral_acceleration = projected_velocity.squaredNorm() * curvature_vector.cross(projected_velocity);
-  msg.acceleration_or_force.x = lateral_acceleration(0);
-  msg.acceleration_or_force.y = lateral_acceleration(1);
-  msg.acceleration_or_force.z = lateral_acceleration(2);
+  msg.acceleration[0] = lateral_acceleration(1);
+  msg.acceleration[1] = lateral_acceleration(0);
+  msg.acceleration[2] = -lateral_acceleration(2);
 
   pub->publish(msg);
 }
@@ -928,84 +870,37 @@ visualization_msgs::msg::Marker TerrainPlanner::getGoalMarker(const int id, cons
   return marker;
 }
 
-void TerrainPlanner::mavstateCallback(const mavros_msgs::msg::State &msg) { current_state_ = msg; }
+void TerrainPlanner::mavstateCallback(const px4_msgs::msg::VehicleStatus &msg) { current_state_ = msg.nav_state; }
 
-// Notes on the conversions used in `mavGlobalOriginCallback`
-//
-// FCU emits mavlink GPS_GLOBAL_ORIGIN (#49 ) which is a geodetic coordinate
-// with the altitude defined relative to the geoid (AMSL).
-//
-// mavros plugin: global_position
-//  - converts geodetic GPS_GLOBAL_ORIGIN LLA from geoid to ellipsoid datum
-//  - converts geodetic LLA to geocentric LLA (!?)
-//  - then publishes geocentic LLA as geographic_msgs/msg/GeoPointStamped - which is
-//    very clearly documented as geodetic coordinate
-//
-//    # http://docs.ros.org/en/jade/api/geographic_msgs/html/msg/GeoPoint.html
-//    # Geographic point, using the WGS 84 reference ellipsoid.
-//
-void TerrainPlanner::mavGlobalOriginCallback(const geographic_msgs::msg::GeoPointStamped &msg) {
-  std::cout << "[TerrainPlanner] Received Global Origin from FMU" << std::endl;
+void TerrainPlanner::setpointTripletCallback(const px4_msgs::msg::PositionSetpointTriplet &msg) {
+  const double lat = msg.current.lat;
+  const double lon = msg.current.lon;
+  const double alt = msg.current.alt;
+  const double loiter_radius = msg.current.loiter_radius;
 
-  local_origin_received_ = true;
+  if (std::isfinite(lat) && std::isfinite(lon)) {
+    std::cout << "Setpoint Triplet Callback" << std::endl;
+    std::cout << "  - lat: " << lat << " lon: " << lon << " alt: " << alt << std::endl;
+    std::cout << "  - loiter_radius: " << loiter_radius << std::endl;
 
-  // receive geocentric LLA coordinate from mavros/global_position/gp_origin
-  double geocentric_lat = static_cast<double>(msg.position.latitude);
-  double geocentric_lon = static_cast<double>(msg.position.longitude);
-  double geocentric_alt = static_cast<double>(msg.position.altitude);
+    EPSG map_coordinate;
+    Eigen::Vector3d map_origin;
+    terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
 
-  // convert to geodetic coordinates with WGS-84 ellipsoid as datum
-  GeographicLib::Geocentric earth(GeographicLib::Constants::WGS84_a(), GeographicLib::Constants::WGS84_f());
-  double geodetic_lat, geodetic_lon, geodetic_alt;
-  earth.Reverse(geocentric_lat, geocentric_lon, geocentric_alt, geodetic_lat, geodetic_lon, geodetic_alt);
-
-  // create local cartesian coordinates (ENU)
-  enu_.emplace(geodetic_lat, geodetic_lon, geodetic_alt, GeographicLib::Geocentric::WGS84());
-
-  // store the geodetic coordinates (why is this called local origin?)
-  local_origin_altitude_ = geodetic_alt;
-  local_origin_latitude_ = geodetic_lat;
-  local_origin_longitude_ = geodetic_lon;
-
-  std::cout << "Global Origin" << std::endl;
-  std::cout << "lat: " << local_origin_latitude_ << std::endl;
-  std::cout << "lon: " << local_origin_longitude_ << std::endl;
-  std::cout << "alt: " << local_origin_altitude_ << std::endl;
-}
-
-void TerrainPlanner::mavMissionCallback(const mavros_msgs::msg::WaypointList &msg) {
-  for (auto &waypoint : msg.waypoints) {
-    if (waypoint.is_current) {
-      if (waypoint.command == mavros_msgs::msg::CommandCode::NAV_LOITER_UNLIM ||
-          waypoint.command == mavros_msgs::msg::CommandCode::NAV_LOITER_TURNS ||
-          waypoint.command == mavros_msgs::msg::CommandCode::NAV_LOITER_TIME ||
-          waypoint.command == mavros_msgs::msg::CommandCode::NAV_LOITER_TO_ALT) {
-        // Get Loiter position
-        std::cout << "NAV Loiter Center" << std::endl;
-        std::cout << " - x_lat : " << waypoint.x_lat << std::endl;
-        std::cout << " - y_long: " << waypoint.y_long << std::endl;
-        std::cout << " - alt   : " << waypoint.z_alt << std::endl;
-        std::cout << " - Radius: " << waypoint.param3 << std::endl;
-        double waypoint_altitude = waypoint.z_alt + local_origin_altitude_;
-        const double loiter_radius = waypoint.param3;
-        Eigen::Vector3d lv03_mission_loiter_center;
-        GeoConversions::forward(waypoint.x_lat, waypoint.y_long, waypoint_altitude, lv03_mission_loiter_center.x(),
-                                lv03_mission_loiter_center.y(), lv03_mission_loiter_center.z());
-        std::cout << "mission_loiter_center_: " << lv03_mission_loiter_center.transpose() << std::endl;
-        EPSG map_coordinate;
-        Eigen::Vector3d map_origin;
-        terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
-
-        if (map_coordinate == EPSG::WGS84) {
-          GeoConversions::forward(map_origin(0), map_origin(1), map_origin(2), map_origin.x(), map_origin.y(),
-                                  map_origin.z());
-        }
-        mission_loiter_center_ = lv03_mission_loiter_center - map_origin;
-        mission_loiter_radius_ = loiter_radius;
-        std::cout << "mission_loiter_center_: " << mission_loiter_center_.transpose() << std::endl;
-      }
-      break;
+    if (map_coordinate == EPSG::CH1903_LV03) {
+      Eigen::Vector3d lv03_mission_loiter_center;
+      GeoConversions::forward(lat, lon, alt, lv03_mission_loiter_center.x(), lv03_mission_loiter_center.y(),
+                              lv03_mission_loiter_center.z());
+      std::cout << "  - mission_loiter_center_: " << lv03_mission_loiter_center.transpose() << std::endl;
+      mission_loiter_center_ = lv03_mission_loiter_center - map_origin;
+    } else {
+      // Gdal conversions
+      Eigen::Vector3d transformed_coordinates =
+          transformCoordinates(EPSG::WGS84, map_coordinate, Eigen::Vector3d(lat, lon, alt));
+      std::cout << "  - mission_loiter_center_: " << transformed_coordinates.transpose() << std::endl;
+      mission_loiter_center_ = transformed_coordinates - map_origin;
     }
+    mission_loiter_radius_ = loiter_radius;
   }
 }
 

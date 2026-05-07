@@ -35,11 +35,10 @@ find_package(terrain_navigation REQUIRED)
 find_package(terrain_planner REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
+find_package(px4_msgs REQUIRED)
 
-find_package(geographic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(grid_map_msgs REQUIRED)
-find_package(mavros_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(planner_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -82,10 +81,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${OpenCV_LIBRARIES}
   Eigen3::Eigen
   tf2_eigen::tf2_eigen
-  ${geographic_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
+  ${px4_msgs_TARGETS}
   ${grid_map_msgs_TARGETS}
-  ${mavros_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${planner_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
@@ -98,6 +96,7 @@ ament_target_dependencies(${PROJECT_NAME} PUBLIC
   grid_map_ros
   terrain_navigation
   terrain_planner
+  px4_msgs
 )
 
 add_executable(terrain_planner_node

@@ -178,12 +178,6 @@ If you get warnings from mavros like this, ignore them:
 [mavros_node-1] [WARN] [1705686179.019743422] [mavros.guided_target]: PositionTargetGlobal failed because no origin
 ```
 
-TODO: Fix QOS incompatibility on the following topic: 
-```bash
-ros2 topic info /mavros/global_position/gp_origin -v
-```
-
-
 Terminal 3 - RVIZ:
 ```bash
 ros2 launch terrain_navigation_ros rviz.launch.py
