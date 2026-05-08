@@ -215,13 +215,22 @@ void TerrainPlanner::cmdloopCallback() {
     EPSG map_coordinate;
     Eigen::Vector3d map_origin;
     terrain_map_->getGlobalOrigin(map_coordinate, map_origin);
-    /// TODO: convert reference position to global
-    const Eigen::Vector3d lv03_reference_position = reference_position + map_origin;
+    // Convert reference position to global
     double latitude;
     double longitude;
     double altitude;
-    GeoConversions::reverse(lv03_reference_position(0), lv03_reference_position(1), lv03_reference_position(2),
-                            latitude, longitude, altitude);
+    if (map_coordinate == EPSG::CH1903_LV03) {
+      const Eigen::Vector3d lv03_reference_position = reference_position + map_origin;
+      GeoConversions::reverse(lv03_reference_position(0), lv03_reference_position(1), lv03_reference_position(2),
+                              latitude, longitude, altitude);
+    } else {
+      // Gdal conversions
+      const Eigen::Vector3d geocoordinate_position = reference_position + map_origin;
+      auto transformed_position = transformCoordinates(map_coordinate, EPSG::WGS84, geocoordinate_position);
+      latitude = transformed_position(0);
+      longitude = transformed_position(1);
+      altitude = transformed_position(2);
+    }
     publishReferenceMarker(position_target_pub_, reference_position, reference_tangent, reference_curvature);
     publishReferenceCurvatureMarker(curvature_target_pub_, reference_position, reference_tangent, reference_curvature);
 
