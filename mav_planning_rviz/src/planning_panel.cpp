@@ -110,6 +110,7 @@ QGroupBox* PlanningPanel::createPlannerCommandGroup() {
   set_current_loiter_button_ = new QPushButton("Loiter Start");
   set_current_segment_button_ = new QPushButton("Current Segment");
   trigger_planning_button_ = new QPushButton("Plan");
+  update_path_button_ = new QPushButton("Update Path");
   planning_budget_editor_ = new QLineEdit;
   max_altitude_button_enable_ = new QPushButton("Enable Max altitude");
   max_altitude_button_disable_ = new QPushButton("Disable Max altitude");
@@ -121,13 +122,13 @@ QGroupBox* PlanningPanel::createPlannerCommandGroup() {
   service_layout->addWidget(new QLabel("Planning budget:"), 2, 0, 1, 1);
   service_layout->addWidget(planning_budget_editor_, 2, 1, 1, 1);
   service_layout->addWidget(trigger_planning_button_, 2, 2, 1, 2);
+  service_layout->addWidget(update_path_button_, 3, 0, 1, 2);
+  service_layout->addWidget(new QLabel("Max Altitude Constraints:"), 4, 0, 1, 1);
+  service_layout->addWidget(max_altitude_button_enable_, 4, 1, 1, 1);
+  service_layout->addWidget(max_altitude_button_disable_, 4, 2, 1, 1);
 
-  service_layout->addWidget(new QLabel("Max Altitude Constraints:"), 3, 0, 1, 1);
-  service_layout->addWidget(max_altitude_button_enable_, 3, 1, 1, 1);
-  service_layout->addWidget(max_altitude_button_disable_, 3, 2, 1, 1);
-
-  service_layout->addWidget(planner_service_button_, 4, 0, 1, 2);
-  service_layout->addWidget(waypoint_button_, 4, 2, 1, 2);
+  service_layout->addWidget(planner_service_button_, 5, 0, 1, 2);
+  service_layout->addWidget(waypoint_button_, 5, 2, 1, 2);
 
   groupBox->setLayout(service_layout);
 
@@ -135,6 +136,7 @@ QGroupBox* PlanningPanel::createPlannerCommandGroup() {
   connect(set_current_loiter_button_, SIGNAL(released()), this, SLOT(setStartLoiterService()));
   connect(set_current_segment_button_, SIGNAL(released()), this, SLOT(setCurrentSegmentService()));
   connect(waypoint_button_, SIGNAL(released()), this, SLOT(publishWaypoint()));
+  connect(update_path_button_, SIGNAL(released()), this, SLOT(setPathService()));
   connect(planning_budget_editor_, SIGNAL(editingFinished()), this, SLOT(updatePlanningBudget()));
   connect(trigger_planning_button_, SIGNAL(released()), this, SLOT(setPlanningBudgetService()));
   connect(max_altitude_button_enable_, SIGNAL(released()), this, SLOT(EnableMaxAltitude()));
@@ -373,6 +375,39 @@ void PlanningPanel::setPlanningBudgetService() {
     if (rclcpp::spin_until_future_complete(node_, result) != rclcpp::FutureReturnCode::SUCCESS) {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Call to service [" << client->get_service_name() << "] failed.");
     }
+  });
+  t.detach();
+}
+
+void PlanningPanel::setPathService() {
+  std::string service_name = "/terrain_planner/set_path";
+  std::cout << "Planner Service" << std::endl;
+  std::thread t([this, service_name] {
+    auto client = node_->create_client<planner_msgs::srv::SetVector3>(service_name);
+    if (!client->wait_for_service(1s)) {
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Service [" << service_name << "] not available.");
+      return;
+    }
+
+    auto req = std::make_shared<planner_msgs::srv::SetVector3::Request>();
+
+    auto result = client->async_send_request(req);
+
+    //! @todo(srmainwaring) prevent race condition with async service calls
+    const std::lock_guard<std::mutex> lock(node_mutex_);
+    if (rclcpp::spin_until_future_complete(node_, result) != rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Call to service [" << client->get_service_name() << "] failed.");
+      return;
+    }
+
+    // try {
+    //   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Service name: " << service_name);
+    //   if (!ros::service::call(service_name, req)) {
+    //     std::cout << "Couldn't call service: " << service_name << std::endl;
+    //   }
+    // } catch (const std::exception& e) {
+    //   std::cout << "Service Exception: " << e.what() << std::endl;
+    // }
   });
   t.detach();
 }

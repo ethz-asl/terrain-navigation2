@@ -53,6 +53,7 @@ class PlanningPanel : public rviz_common::Panel {
   void terrainAlignmentStateChanged(int state);
   void EnableMaxAltitude();
   void DisableMaxAltitude();
+  void setPathService();
   void setPlannerModeServiceNavigate();
   void setPlannerModeServiceRollout();
   void setPlannerModeServiceAbort();
@@ -89,6 +90,7 @@ class PlanningPanel : public rviz_common::Panel {
   QPushButton* max_altitude_button_enable_;
   QPushButton* max_altitude_button_disable_;
   QPushButton* load_terrain_button_;
+  QPushButton* update_path_button_;
   std::vector<QPushButton*> set_planner_state_buttons_;
 
   // QT state:
