@@ -13,11 +13,5 @@
         /vehicle_path
         /vehicle_pose_marker
         /vehicle_velocity
-        /mavros/setpoint_raw/global
-        /mavros/local_position/pose
-        /mavros/local_position/velocity_local
-        /mavros/state
-        /mavros/wind_estimation
-        /tree
-        /mavros/global_position/gp_origin"/>
+        /tree"/>
 </launch>

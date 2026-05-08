@@ -6,7 +6,7 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     terrain_navigation::terrain_navigation
     terrain_planner::terrain_planner
-    ${OpenCV_LIBRARIES} ${GeographicLib_LIBRARIES} ${OMPL_LIBRARIES}
+    ${OpenCV_LIBRARIES} ${OMPL_LIBRARIES}
 )
 
 target_sources(${PROJECT_NAME}_node

@@ -11,3 +11,7 @@ repositories:
     type: git
     url: https://github.com/ompl/ompl.git
     version: b2d39b4fabcef43100fb7b6dfc2b8a5e7dbb34b8
+  px4_msgs:
+    type: git
+    url: https://github.com/Jaeyoung-Lim/px4_msgs.git
+    version: 302a575604e1154a455e31c09d57713af54e2feb

@@ -48,19 +48,8 @@
 #include <terrain_planner/visualization.h>
 
 #include <Eigen/Dense>
-#include <GeographicLib/Geocentric.hpp>
-#include <GeographicLib/LocalCartesian.hpp>
-#include <geographic_msgs/msg/geo_point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <geometry_msgs/msg/twist_stamped.hpp>
 #include <grid_map_msgs/msg/grid_map.hpp>
-#include <mavros_msgs/msg/camera_image_captured.hpp>
-#include <mavros_msgs/msg/global_position_target.hpp>
-#include <mavros_msgs/msg/position_target.hpp>
-#include <mavros_msgs/msg/state.hpp>
-#include <mavros_msgs/msg/trajectory.hpp>
-#include <mavros_msgs/msg/waypoint_list.hpp>
-#include <mavros_msgs/srv/command_long.hpp>
 #include <mutex>
 #include <nav_msgs/msg/path.hpp>
 #include <planner_msgs/msg/navigation_status.hpp>
@@ -68,8 +57,14 @@
 #include <planner_msgs/srv/set_service.hpp>
 #include <planner_msgs/srv/set_string.hpp>
 #include <planner_msgs/srv/set_vector3.hpp>
+#include <px4_msgs/msg/global_trajectory_setpoint.hpp>
+#include <px4_msgs/msg/offboard_control_mode.hpp>
+#include <px4_msgs/msg/position_setpoint_triplet.hpp>
+#include <px4_msgs/msg/vehicle_attitude.hpp>
+#include <px4_msgs/msg/vehicle_global_position.hpp>
+#include <px4_msgs/msg/vehicle_local_position.hpp>
+#include <px4_msgs/msg/vehicle_status.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 enum class PLANNER_MODE { ACTIVE_MAPPING, EMERGENCY_ABORT, EXHAUSTIVE, GLOBAL, GLOBAL_REPLANNING, RANDOM, RETURN };
@@ -93,12 +88,11 @@ class TerrainPlanner : public rclcpp::Node {
   void publishTrajectory(std::vector<Eigen::Vector3d> trajectory);
 
   // States from vehicle
-  void mavLocalPoseCallback(const geometry_msgs::msg::PoseStamped &msg);
-  void mavGlobalPoseCallback(const sensor_msgs::msg::NavSatFix &msg);
-  void mavtwistCallback(const geometry_msgs::msg::TwistStamped &msg);
-  void mavstateCallback(const mavros_msgs::msg::State &msg);
-  void mavGlobalOriginCallback(const geographic_msgs::msg::GeoPointStamped &msg);
-  void mavMissionCallback(const mavros_msgs::msg::WaypointList &msg);
+  void mavLocalPoseCallback(const px4_msgs::msg::VehicleLocalPosition &msg);
+  void mavGlobalPoseCallback(const px4_msgs::msg::VehicleGlobalPosition &msg);
+  void mavstateCallback(const px4_msgs::msg::VehicleStatus &msg);
+  void mavAttitudeCallback(const px4_msgs::msg::VehicleAttitude &msg);
+  void setpointTripletCallback(const px4_msgs::msg::PositionSetpointTriplet &msg);
 
   bool setLocationCallback(const std::shared_ptr<planner_msgs::srv::SetString::Request> req,
                            std::shared_ptr<planner_msgs::srv::SetString::Response> res);
@@ -122,10 +116,7 @@ class TerrainPlanner : public rclcpp::Node {
   void MapPublishOnce(rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr pub, const grid_map::GridMap &map);
   void publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr, const Eigen::Vector3d &position,
                               std::vector<geometry_msgs::msg::PoseStamped> &history_vector);
-  void publishPositionSetpoints(rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr pub,
-                                const Eigen::Vector3d &position, const Eigen::Vector3d &velocity,
-                                const double curvature);
-  void publishGlobalPositionSetpoints(rclcpp::Publisher<mavros_msgs::msg::GlobalPositionTarget>::SharedPtr pub,
+  void publishGlobalPositionSetpoints(rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub,
                                       const double latitude, const double longitude, const double altitude,
                                       const Eigen::Vector3d &velocity, const double curvature);
   void publishReferenceMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
@@ -180,7 +171,8 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr vehicle_pose_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr posehistory_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr referencehistory_pub_;
-  rclcpp::Publisher<mavros_msgs::msg::GlobalPositionTarget>::SharedPtr global_position_setpoint_pub_;
+  rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr global_setpoint_pub_;
+  rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_mode_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr position_target_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr curvature_target_pub_;
   rclcpp::Publisher<planner_msgs::msg::NavigationStatus>::SharedPtr planner_status_pub_;
@@ -192,12 +184,11 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr vehicle_velocity_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_segment_pub_;
 
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr mavlocalpose_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr mavglobalpose_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr mavtwist_sub_;
-  rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr mavstate_sub_;
-  rclcpp::Subscription<mavros_msgs::msg::WaypointList>::SharedPtr mavmission_sub_;
-  rclcpp::Subscription<geographic_msgs::msg::GeoPointStamped>::SharedPtr global_origin_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr mavlocalpose_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleAttitude>::SharedPtr mavattitude_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr mavglobalpose_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr mavstate_sub_;
+  rclcpp::Subscription<px4_msgs::msg::PositionSetpointTriplet>::SharedPtr setpoint_triplet_sub_;
 
   rclcpp::Service<planner_msgs::srv::SetString>::SharedPtr setlocation_serviceserver_;
   rclcpp::Service<planner_msgs::srv::SetString>::SharedPtr setmaxaltitude_serviceserver_;
@@ -208,8 +199,6 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Service<planner_msgs::srv::SetVector3>::SharedPtr updatepath_serviceserver_;
   rclcpp::Service<planner_msgs::srv::SetService>::SharedPtr setcurrentsegment_serviceserver_;
   rclcpp::Service<planner_msgs::srv::SetPlannerState>::SharedPtr setplannerstate_service_server_;
-
-  rclcpp::Client<mavros_msgs::srv::CommandLong>::SharedPtr msginterval_serviceclient_;
 
   // ros::Timer cmdloop_timer_, statusloop_timer_, plannerloop_timer_;
   rclcpp::TimerBase::SharedPtr cmdloop_timer_;
@@ -223,15 +212,7 @@ class TerrainPlanner : public rclcpp::Node {
   Eigen::Vector3d home_position_{Eigen::Vector3d(0.0, 0.0, 20.0)};
   double home_position_radius_{0.0};
   Eigen::Vector3d tracking_error_{Eigen::Vector3d::Zero()};
-  // ros::CallbackQueue plannerloop_queue_;
-  // ros::CallbackQueue statusloop_queue_;
-  // ros::CallbackQueue cmdloop_queue_;
-  // std::unique_ptr<ros::AsyncSpinner> plannerloop_spinner_;
-  // std::unique_ptr<ros::AsyncSpinner> statusloop_spinner_;
-  // std::unique_ptr<ros::AsyncSpinner> cmdloop_spinner_;
-  // std::shared_ptr<rclcpp::Node> plannerloop_node_;
-  // std::shared_ptr<rclcpp::Node> statusloop_node_;
-  // std::shared_ptr<rclcpp::Node> cmdloop_node_;
+  std::string px4_namespace_;
   rclcpp::executors::SingleThreadedExecutor cmdloop_executor_;
   rclcpp::executors::SingleThreadedExecutor statusloop_executor_;
   rclcpp::executors::SingleThreadedExecutor plannerloop_executor_;
@@ -249,8 +230,7 @@ class TerrainPlanner : public rclcpp::Node {
   Path reference_primitive_;
   Path candidate_primitive_;
   Path rollout_primitive_;
-  mavros_msgs::msg::State current_state_;
-  std::optional<GeographicLib::LocalCartesian> enu_;
+  int current_state_;
 
   std::mutex goal_mutex_;  // protects g_i
 
@@ -290,7 +270,6 @@ class TerrainPlanner : public rclcpp::Node {
   double planner_time_budget_{30.0};
   double mission_loiter_radius_{66.67};
   double start_loiter_radius_{66.67};
-  bool local_origin_received_{false};
   bool map_initialized_{false};
   bool planner_enabled_{false};
   bool problem_updated_{true};

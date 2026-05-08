@@ -117,17 +117,25 @@ cd PX4-AutoPilot
 ./Tools/setup/ubuntu.sh --no-nuttx
 ```
 
-Now, configure the shell environment to run `gz_standard_vtol`.
+#### Running terrain planner PX4 SITL with Gazebo
+Run the terrain planner with the following launch command
+
 ```bash
-# Source environment variables mentioned in PX4-Autopilot/Tools/simulation/gz/worlds/davosdorf.sdf
+ros2 launch terrain_navigation_ros terrain_planner.launch.py rviz:=false
+```
+
+Now, configure the shell environment to run `gz_standard_vtol` with the davosdorf world.
+```bash
+# Navigate to PX4-Autopilot directory
+cd ~/PX4-Autopilot
+
+# Set environment variables for the Davosdorf location
 export PX4_HOME_LAT=46.8132056
 export PX4_HOME_LON=9.8479538
 export PX4_HOME_ALT=1562.0
 export PX4_GZ_VERBOSE=4
-export PX4_GZ_MODEL_POSE="0,0,1562,0,0,0"
-export PX4_GZ_WORLD=davosdorf
-# TODO remove these variables and make it use a proper aligned world.
 
+# Launch PX4 SITL with Gazebo
 make px4_sitl gz_standard_vtol
 ```
 
@@ -177,12 +185,6 @@ If you get warnings from mavros like this, ignore them:
 ```
 [mavros_node-1] [WARN] [1705686179.019743422] [mavros.guided_target]: PositionTargetGlobal failed because no origin
 ```
-
-TODO: Fix QOS incompatibility on the following topic: 
-```bash
-ros2 topic info /mavros/global_position/gp_origin -v
-```
-
 
 Terminal 3 - RVIZ:
 ```bash

@@ -47,7 +47,7 @@ void publishVehiclePose(rclcpp::Publisher<visualization_msgs::msg::Marker>::Shar
                         const Eigen::Vector3d &position, const Eigen::Vector4d &attitude,
                         std::string mesh_resource_path) {
   Eigen::Vector4d mesh_attitude =
-      quatMultiplication(attitude, Eigen::Vector4d(std::cos(M_PI / 2), 0.0, 0.0, std::sin(M_PI / 2)));
+      quatMultiplication(attitude, Eigen::Vector4d(std::cos(-0.5 * M_PI / 2), 0.0, 0.0, std::sin(-0.5 * M_PI / 2)));
   geometry_msgs::msg::Pose vehicle_pose = vector3d2PoseMsg(position, mesh_attitude);
   visualization_msgs::msg::Marker marker;
   marker.header.stamp = rclcpp::Clock().now();
@@ -57,7 +57,7 @@ void publishVehiclePose(rclcpp::Publisher<visualization_msgs::msg::Marker>::Shar
   //! @todo(srmainwaring) understand why the mesh is not displayed.
   //! @note https://answers.ros.org/question/282745/rviz-doesnt-load-dae-mesh-cannot-locate-it/
   // marker.mesh_resource = "package://terrain_planner/" + mesh_resource_path;
-  marker.mesh_resource = "file://" + mesh_resource_path;
+  marker.mesh_resource = "package://" + mesh_resource_path;
   marker.scale.x = 10.0;
   marker.scale.y = 10.0;
   marker.scale.z = 10.0;
