@@ -8,14 +8,13 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <functional>
-#include <thread>
-
 #include <mavros_msgs/srv/set_mode.hpp>
 #include <planner_msgs/srv/set_planner_state.hpp>
 #include <planner_msgs/srv/set_service.hpp>
 #include <planner_msgs/srv/set_string.hpp>
 #include <planner_msgs/srv/set_vector3.hpp>
 #include <rviz_common/visualization_manager.hpp>
+#include <thread>
 
 #include "mav_planning_rviz/goal_marker.h"
 
@@ -50,8 +49,7 @@ std::string to_string(FLIGHT_STACK flight_stack) {
 }  // namespace
 
 PlanningPanel::PlanningPanel(QWidget* parent)
-    : rviz_common::Panel(parent),
-      node_(std::make_shared<rclcpp::Node>("mav_planning_rviz")) {
+    : rviz_common::Panel(parent), node_(std::make_shared<rclcpp::Node>("mav_planning_rviz")) {
   createLayout();
 }
 
@@ -171,9 +169,7 @@ QGroupBox* PlanningPanel::createTerrainLoaderGroup() {
   return groupBox;
 }
 
-void PlanningPanel::terrainAlignmentStateChanged(int state) {
-  align_terrain_on_load_ = (state == 0);
-}
+void PlanningPanel::terrainAlignmentStateChanged(int state) { align_terrain_on_load_ = (state == 0); }
 
 void PlanningPanel::updatePlannerName() {
   QString new_planner_name = planner_name_editor_->text();
@@ -218,9 +214,7 @@ void PlanningPanel::setPlannerName() {
   t.detach();
 }
 
-void PlanningPanel::updatePlanningBudget() {
-  setPlanningBudget(planning_budget_editor_->text());
-}
+void PlanningPanel::updatePlanningBudget() { setPlanningBudget(planning_budget_editor_->text()); }
 
 void PlanningPanel::setPlanningBudget(const QString& new_planning_budget) {
   if (new_planning_budget != planning_budget_value_) {

@@ -3,8 +3,8 @@
 
 #ifndef Q_MOC_RUN
 #include <QGroupBox>
-#include <mutex>
 #include <geometry_msgs/msg/pose.hpp>
+#include <mutex>
 #include <nav_msgs/msg/odometry.hpp>
 #include <planner_msgs/msg/navigation_status.hpp>
 #include <rclcpp/rclcpp.hpp>

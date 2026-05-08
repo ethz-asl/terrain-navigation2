@@ -16,8 +16,7 @@ namespace {
 
 // Helper to extract yaw from quaternion
 double getYawFromQuaternion(const geometry_msgs::msg::Quaternion& q) {
-  return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
-                    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
 // Helper to set quaternion from yaw
