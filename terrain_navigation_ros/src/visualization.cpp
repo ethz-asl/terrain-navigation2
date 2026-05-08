@@ -47,7 +47,7 @@ void publishVehiclePose(rclcpp::Publisher<visualization_msgs::msg::Marker>::Shar
                         const Eigen::Vector3d &position, const Eigen::Vector4d &attitude,
                         std::string mesh_resource_path) {
   Eigen::Vector4d mesh_attitude =
-      quatMultiplication(attitude, Eigen::Vector4d(std::cos(M_PI / 2), 0.0, 0.0, std::sin(M_PI / 2)));
+      quatMultiplication(attitude, Eigen::Vector4d(std::cos(-0.5 * M_PI / 2), 0.0, 0.0, std::sin(-0.5 * M_PI / 2)));
   geometry_msgs::msg::Pose vehicle_pose = vector3d2PoseMsg(position, mesh_attitude);
   visualization_msgs::msg::Marker marker;
   marker.header.stamp = rclcpp::Clock().now();

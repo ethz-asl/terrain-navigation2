@@ -91,6 +91,7 @@ class TerrainPlanner : public rclcpp::Node {
   void mavLocalPoseCallback(const px4_msgs::msg::VehicleLocalPosition &msg);
   void mavGlobalPoseCallback(const px4_msgs::msg::VehicleGlobalPosition &msg);
   void mavstateCallback(const px4_msgs::msg::VehicleStatus &msg);
+  void mavAttitudeCallback(const px4_msgs::msg::VehicleAttitude &msg);
   void setpointTripletCallback(const px4_msgs::msg::PositionSetpointTriplet &msg);
 
   bool setLocationCallback(const std::shared_ptr<planner_msgs::srv::SetString::Request> req,
@@ -184,6 +185,7 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_segment_pub_;
 
   rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr mavlocalpose_sub_;
+  rclcpp::Subscription<px4_msgs::msg::VehicleAttitude>::SharedPtr mavattitude_sub_;
   rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr mavglobalpose_sub_;
   rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr mavstate_sub_;
   rclcpp::Subscription<px4_msgs::msg::PositionSetpointTriplet>::SharedPtr setpoint_triplet_sub_;

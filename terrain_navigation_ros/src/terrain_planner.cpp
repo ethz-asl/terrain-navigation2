@@ -132,6 +132,9 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   mavlocalpose_sub_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
       px4_namespace_ + "/fmu/out/vehicle_local_position", mavros_position_qos,
       std::bind(&TerrainPlanner::mavLocalPoseCallback, this, _1));
+  mavattitude_sub_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
+      px4_namespace_ + "/fmu/out/vehicle_attitude", mavros_position_qos,
+      std::bind(&TerrainPlanner::mavAttitudeCallback, this, _1));
   mavglobalpose_sub_ = this->create_subscription<px4_msgs::msg::VehicleGlobalPosition>(
       px4_namespace_ + "/fmu/out/vehicle_global_position", mavros_position_qos,
       std::bind(&TerrainPlanner::mavGlobalPoseCallback, this, _1));
@@ -653,6 +656,14 @@ void TerrainPlanner::mavLocalPoseCallback(const px4_msgs::msg::VehicleLocalPosit
   local_origin_longitude_ = msg.ref_lon;
   local_origin_altitude_ = msg.ref_alt;
   // }
+}
+
+void TerrainPlanner::mavAttitudeCallback(const px4_msgs::msg::VehicleAttitude &msg) {
+  /// TODO: Fix NED->ENU Conversions
+  vehicle_attitude_(0) = msg.q[0];
+  vehicle_attitude_(1) = msg.q[2];
+  vehicle_attitude_(2) = msg.q[1];
+  vehicle_attitude_(3) = -msg.q[3];
 }
 
 void TerrainPlanner::mavGlobalPoseCallback(const px4_msgs::msg::VehicleGlobalPosition &msg) {
