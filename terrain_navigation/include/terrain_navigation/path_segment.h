@@ -69,8 +69,9 @@ inline void wrap_pi(double &angle) {
 
 class PathSegment {
  public:
-  PathSegment(){};
-  virtual ~PathSegment(){};
+  PathSegment() = default;
+  virtual ~PathSegment() = default;
+
   std::vector<Eigen::Vector3d> position() {
     std::vector<Eigen::Vector3d> pos_vector;
     for (auto state : states) {
@@ -93,9 +94,9 @@ class PathSegment {
     return attitude_vector;
   }
 
+  // Static geometry helpers shared by subclasses
   static Eigen::Vector2d getArcCenter(const Eigen::Vector2d &segment_start,
                                       const Eigen::Vector2d &segment_start_tangent, double curvature) {
-    // Segment is full circle!
     Eigen::Vector3d segment_start_tangent_3d(segment_start_tangent(0), segment_start_tangent(1), 0.0);
     Eigen::Vector3d rotational_vector(0.0, 0.0, curvature / std::abs(curvature));
 
@@ -130,7 +131,6 @@ class PathSegment {
     Eigen::Vector3d progress_vector = (segment_end - segment_start).normalized();
     double segment_length = (segment_end - segment_start).norm();
     Eigen::Vector3d error_vector = position - segment_start;
-    // Get Path Progress
     double theta = error_vector.dot(progress_vector) / segment_length;
     return theta;
   }
@@ -141,8 +141,6 @@ class PathSegment {
     Eigen::Vector2d pos_vector = (position_2d - arc_center_2d).normalized();
     Eigen::Vector2d start_vector = (segment_start_2d - arc_center_2d).normalized();
     Eigen::Vector2d end_vector = (segment_end_2d - arc_center_2d).normalized();
-    /// TODO: if end_vector == start_vector psi = 2_PI
-    // Progress does not depend on curvature!
     double psi;
     double angle_pos;
     if (curvature > 0.0) {
@@ -164,105 +162,21 @@ class PathSegment {
     return theta;
   }
 
-  double getLength(double epsilon = 1.0E-3) const {
-    double length{0.0};
-    Eigen::Vector3d segment_start = states.front().position;
-    Eigen::Vector3d segment_end = states.back().position;
-    if (states.size() == 1) {
-      return 0.0;
-    } else if (std::abs(curvature) < 0.0001) {
-      // Segment is a line segment
-      length = (segment_end - segment_start).norm();
-    } else {
-      // Compute closest point on a Arc segment
-      Eigen::Vector2d segment_start_2d = segment_start.head(2);
-      Eigen::Vector2d segment_end_2d = segment_end.head(2);
-      if (is_periodic) {
-        // Return full circle length
-        length = 2 * M_PI * (1 / std::abs(curvature));
-      } else {
-        Eigen::Vector2d segment_start_2d = segment_start.head(2);
-        Eigen::Vector2d segment_start_tangent_2d = (states.front().velocity).head(2).normalized();
-        Eigen::Vector2d segment_end_2d = segment_end.head(2);
-
-        Eigen::Vector2d arc_center_2d = getArcCenter(segment_start_2d, segment_start_tangent_2d, curvature);
-        Eigen::Vector2d start_vector = (segment_start_2d - arc_center_2d).normalized();
-        Eigen::Vector2d end_vector = (segment_end_2d - arc_center_2d).normalized();
-
-        double psi = std::atan2(end_vector(1), end_vector(0)) - std::atan2(start_vector(1), start_vector(0));
-        // Check which direction we need to subtract
-        if (psi * curvature < 0) {
-          psi += std::copysign(2.0 * M_PI, curvature);
-        }
-        length = (1 / std::abs(curvature)) * std::abs(psi);
-      }
-    }
-    return length;
-  }
-
-  double getClosestPoint(const Eigen::Vector3d &position, Eigen::Vector3d &closest_point, Eigen::Vector3d &tangent,
-                         double &segment_curvature, double epsilon = 1.0E-4) {
-    double theta{-std::numeric_limits<double>::infinity()};
-    segment_curvature = curvature;
-    Eigen::Vector3d segment_start = states.front().position;
-    Eigen::Vector3d segment_start_tangent = (states.front().velocity).normalized();
-    Eigen::Vector3d segment_end = states.back().position;
-    if (states.size() == 1) {
-      // Segment only contains a single state, meaning that it is nor a line or a arc
-      theta = 1.0;
-    } else if (std::abs(curvature) < epsilon) {
-      // Compute closest point on a line segment
-      // Get Path Progress
-      theta = getLineProgress(position, segment_start, segment_end);
-      tangent = (segment_end - segment_start).normalized();
-      // Closest point should not be outside segment - constrain theta to [0.0, 1.0]
-      closest_point = std::max(std::min(1.0, theta), 0.0) * (segment_end - segment_start) + segment_start;
-    } else {
-      // Compute closest point on a Arc segment
-      Eigen::Vector2d position_2d(position(0), position(1));
-      Eigen::Vector2d segment_start_2d = segment_start.head(2);
-      Eigen::Vector2d segment_start_tangent_2d = segment_start_tangent.head(2).normalized();
-      Eigen::Vector2d segment_end_2d = segment_end.head(2);
-      Eigen::Vector2d arc_center{Eigen::Vector2d::Zero()};
-      // Handle when it is a full circle
-      if (is_periodic) {
-        arc_center = getArcCenter(segment_start_2d, segment_start_tangent_2d, curvature);
-        Eigen::Vector2d start_vector = (segment_start_2d - arc_center).normalized();
-        Eigen::Vector2d position_vector = position_2d - arc_center;
-        double angle_pos =
-            std::atan2(position_vector(1), position_vector(0)) - std::atan2(start_vector(1), start_vector(0));
-        wrap_2pi(angle_pos);
-        /// TODO: Check for the case for a helix!
-        theta = angle_pos / (2 * M_PI);
-      } else {
-        // arc_center = getArcCenter(segment_start_2d, segment_start_tangent_2d, curvature);
-        arc_center = getArcCenter(curvature, segment_start_2d, segment_start_tangent_2d, segment_end_2d);
-        theta = getArcProgress(arc_center, position_2d, segment_start_2d, segment_end_2d, curvature);
-      }
-      Eigen::Vector2d closest_point_2d = std::abs(1 / curvature) * (position_2d - arc_center).normalized() + arc_center;
-      closest_point = Eigen::Vector3d(closest_point_2d(0), closest_point_2d(1),
-                                      theta * segment_end(2) + (1 - theta) * segment_start(2));
-      Eigen::Vector2d error_vector = (closest_point_2d - arc_center).normalized();  // Position to error vector
-      tangent = Eigen::Vector3d((curvature / std::abs(curvature)) * -error_vector(1),
-                                (curvature / std::abs(curvature)) * error_vector(0), 0.0);
-    }
-
-    tangent(0) = std::cos(flightpath_angle) * tangent(0);
-    tangent(1) = std::cos(flightpath_angle) * tangent(1);
-    tangent(2) = std::sin(flightpath_angle);
-    return theta;
-  }
+  // Pure virtual interface — each segment type implements its own geometry
+  virtual double getLength(double epsilon = 1.0E-3) const = 0;
+  virtual double getClosestPoint(const Eigen::Vector3d &position, Eigen::Vector3d &closest_point,
+                                 Eigen::Vector3d &tangent, double &segment_curvature,
+                                 double epsilon = 1.0E-4) = 0;
+  virtual std::shared_ptr<PathSegment> clone() const = 0;
 
   std::vector<State> states;
-  double curvature{0.0};
+  double curvature{0.0};       // Signed curvature: positive = left/CCW, negative = right/CW
   double flightpath_angle{0.0};
   double dt{0.0};
   double utility{0.0};
   bool viewed{false};
   bool reached{false};
   bool is_periodic{false};
-
- private:
 };
 
 #endif

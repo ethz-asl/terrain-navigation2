@@ -46,6 +46,7 @@
 #include <sstream>
 #include <string>
 
+#include "terrain_navigation/dubins_path_segment.h"
 #include "terrain_navigation/path.h"
 #include "terrain_planner/ompl_setup.h"
 
@@ -225,9 +226,10 @@ class TerrainOmplRrt {
    */
   double getSegmentCurvature(const ompl::base::OwenStateSpace::PathType& path, int segment_index) const;
 
-  PathSegment extractPathSegment(ompl::base::State* from, ompl::base::State* to,
-                                 ompl::base::OwenStateSpace::PathType& path, double t_start, double t_end,
-                                 double curvature, double horizontal_length, double dt = 0.01) const;
+  std::shared_ptr<DubinsPathSegment> extractPathSegment(ompl::base::State* from, ompl::base::State* to,
+                                                        ompl::base::OwenStateSpace::PathType& path, double t_start,
+                                                        double t_end, double curvature, double horizontal_length,
+                                                        double dt = 0.01) const;
 
  private:
   // double minimum_turning_radius_{66.67};
