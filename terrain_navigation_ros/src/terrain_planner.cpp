@@ -212,8 +212,8 @@ void TerrainPlanner::cmdloopCallback() {
     Eigen::Vector3d reference_tangent;
     double reference_curvature{0.0};
     auto current_segment = reference_primitive_.getCurrentSegment(vehicle_position_);
-    double path_progress = current_segment.getClosestPoint(vehicle_position_, reference_position, reference_tangent,
-                                                           reference_curvature, 1.0E-4);
+    double path_progress = current_segment->getClosestPoint(vehicle_position_, reference_position, reference_tangent,
+                                                            reference_curvature, 1.0E-4);
     // Publish global position setpoints in the global frame
     EPSG map_coordinate;
     Eigen::Vector3d map_origin;
@@ -239,7 +239,7 @@ void TerrainPlanner::cmdloopCallback() {
 
     // Run additional altitude control
     double altitude_correction = K_z_ * (vehicle_position_(2) - reference_position(2));
-    double climb_rate = cruise_speed_ * std::sin(current_segment.flightpath_angle);
+    double climb_rate = cruise_speed_ * std::sin(current_segment->flightpath_angle);
     Eigen::Vector3d velocity_reference = reference_tangent;
 
     velocity_reference(2) =
@@ -251,10 +251,10 @@ void TerrainPlanner::cmdloopCallback() {
     bool is_last_segment = bool(current_segment_idx >= static_cast<int>(reference_primitive_.segments.size() - 1));
     if (!is_last_segment) {
       /// Get next segment curvature
-      double next_segment_curvature = reference_primitive_.segments[current_segment_idx + 1].curvature;
+      double next_segment_curvature = reference_primitive_.segments[current_segment_idx + 1]->curvature;
 
       /// Blend current curvature with next curvature when close to the end
-      double segment_length = current_segment.getLength(1.0);
+      double segment_length = current_segment->getLength(1.0);
       double cut_off_distance = 10.0;
       double portion = std::min(
           1.0, std::max((path_progress * segment_length - segment_length + cut_off_distance) / cut_off_distance, 0.0));
@@ -362,9 +362,9 @@ void TerrainPlanner::plannerloopCallback() {
     case PLANNER_MODE::EMERGENCY_ABORT: {
       // Solve planning problem with RRT*
       if (!reference_primitive_.segments.empty()) {
-        PathSegment current_segment = reference_primitive_.getCurrentSegment(vehicle_position_);
-        Eigen::Vector3d start_position = current_segment.states.back().position;
-        Eigen::Vector3d start_velocity = current_segment.states.back().velocity;
+        auto current_segment = reference_primitive_.getCurrentSegment(vehicle_position_);
+        Eigen::Vector3d start_position = current_segment->states.back().position;
+        Eigen::Vector3d start_velocity = current_segment->states.back().velocity;
 
         if ((start_position != previous_start_position_ && !found_solution_)) {
           std::cout << "Start position changed! Updating problem" << std::endl;
@@ -436,9 +436,9 @@ void TerrainPlanner::plannerloopCallback() {
             //     20.0 * end_velocity.normalized().cross(radial_vector.normalized()) / radial_vector.norm();
             // double horizon = 2 * M_PI / std::abs(emergency_rates(2));
             //  Append a loiter at the end of the planned path
-            PathSegment loiter_trajectory;
+            DubinsPathSegment loiter_trajectory;
             generateCircle(end_position, end_velocity, rally_points[min_distance_index], loiter_trajectory);
-            updated_segment.appendSegment(loiter_trajectory);
+            updated_segment.appendSegment(std::make_shared<DubinsPathSegment>(std::move(loiter_trajectory)));
             reference_primitive_ = updated_segment;
             candidate_primitive_ = updated_segment;
           }
@@ -451,9 +451,9 @@ void TerrainPlanner::plannerloopCallback() {
     case PLANNER_MODE::RETURN: {
       // Solve planning problem with RRT*
       if (!reference_primitive_.segments.empty()) {
-        PathSegment current_segment = reference_primitive_.getCurrentSegment(vehicle_position_);
-        Eigen::Vector3d start_position = current_segment.states.back().position;
-        Eigen::Vector3d start_velocity = current_segment.states.back().velocity;
+        auto current_segment = reference_primitive_.getCurrentSegment(vehicle_position_);
+        Eigen::Vector3d start_position = current_segment->states.back().position;
+        Eigen::Vector3d start_velocity = current_segment->states.back().velocity;
 
         if ((start_position != previous_return_start_position_ && !found_return_solution_)) {
           std::cout << "Start position changed! Updating problem" << std::endl;
@@ -494,9 +494,9 @@ void TerrainPlanner::plannerloopCallback() {
             //     20.0 * end_velocity.normalized().cross(radial_vector.normalized()) / radial_vector.norm();
             // double horizon = 2 * M_PI / std::abs(emergency_rates(2));
             // Append a loiter at the end of the planned path
-            PathSegment loiter_trajectory;
+            DubinsPathSegment loiter_trajectory;
             generateCircle(end_position, end_velocity, home_position_, loiter_trajectory);
-            updated_segment.appendSegment(loiter_trajectory);
+            updated_segment.appendSegment(std::make_shared<DubinsPathSegment>(std::move(loiter_trajectory)));
             reference_primitive_ = updated_segment;
             candidate_primitive_ = updated_segment;
           }
@@ -531,7 +531,7 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
 
       // Stay in hold mode if the current segment is periodic, Otherwise switch to abort
       if (query_state == PLANNER_STATE::ABORT) {
-        if (!reference_primitive_.getCurrentSegment(vehicle_position_).is_periodic) {
+        if (!reference_primitive_.getCurrentSegment(vehicle_position_)->is_periodic) {
           next_state = PLANNER_STATE::ABORT;
           planner_mode_ = PLANNER_MODE::EMERGENCY_ABORT;
         } else {
@@ -553,7 +553,7 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
       reference_primitive_ = rollout_primitive_;
       /// TODO: Add self termination
       if (query_state == PLANNER_STATE::ABORT) {
-        if (reference_primitive_.getCurrentSegment(vehicle_position_).is_periodic) {
+        if (reference_primitive_.getCurrentSegment(vehicle_position_)->is_periodic) {
           next_state = PLANNER_STATE::HOLD;
           planner_mode_ = PLANNER_MODE::GLOBAL;
         } else {
@@ -571,16 +571,16 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
             // Add initial loiter
             Eigen::Vector3d start_position = candidate_primitive_.firstSegment().states.front().position;
             Eigen::Vector3d start_velocity = candidate_primitive_.firstSegment().states.front().velocity;
-            PathSegment start_loiter;
+            DubinsPathSegment start_loiter;
             generateCircle(start_position, start_velocity, start_pos_, start_loiter);
-            candidate_primitive_.prependSegment(start_loiter);
+            candidate_primitive_.prependSegment(std::make_shared<DubinsPathSegment>(std::move(start_loiter)));
 
             // Add terminal loiter
             Eigen::Vector3d end_position = candidate_primitive_.lastSegment().states.back().position;
             Eigen::Vector3d end_velocity = candidate_primitive_.lastSegment().states.back().velocity;
-            PathSegment terminal_loiter;
+            DubinsPathSegment terminal_loiter;
             generateCircle(end_position, end_velocity, goal_pos_, terminal_loiter);
-            candidate_primitive_.appendSegment(terminal_loiter);
+            candidate_primitive_.appendSegment(std::make_shared<DubinsPathSegment>(std::move(terminal_loiter)));
 
             reference_primitive_ = candidate_primitive_;
             next_state = query_state;
@@ -611,7 +611,7 @@ PLANNER_STATE TerrainPlanner::finiteStateMachine(const PLANNER_STATE current_sta
       }
 
       if (query_state == PLANNER_STATE::ABORT) {
-        if (!reference_primitive_.getCurrentSegment(vehicle_position_).is_periodic) {
+        if (!reference_primitive_.getCurrentSegment(vehicle_position_)->is_periodic) {
           next_state = PLANNER_STATE::ABORT;
           planner_mode_ = PLANNER_MODE::EMERGENCY_ABORT;
         }
@@ -784,14 +784,14 @@ void TerrainPlanner::publishPathSegments(rclcpp::Publisher<visualization_msgs::m
   int i = 0;
   for (auto &segment : trajectory.segments) {
     Eigen::Vector3d color = Eigen::Vector3d(1.0, 0.0, 0.0);
-    if (segment.curvature > 0.0) {  // Green is DUBINS_LEFT
+    if (segment->curvature > 0.0) {  // Green is DUBINS_LEFT
       color = Eigen::Vector3d(0.0, 1.0, 0.0);
-    } else if (segment.curvature < 0.0) {  // Blue is DUBINS_RIGHT
+    } else if (segment->curvature < 0.0) {  // Blue is DUBINS_RIGHT
       color = Eigen::Vector3d(0.0, 0.0, 1.0);
     }
-    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(segment, i++, color));
-    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().front(), i++, color));
-    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().back(), i++, color));
+    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(*segment, i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment->position().front(), i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment->position().back(), i++, color));
   }
   msg.markers = segment_markers;
   pub->publish(msg);
@@ -991,7 +991,7 @@ bool TerrainPlanner::setCurrentSegmentCallback(const std::shared_ptr<planner_msg
   const std::lock_guard<std::mutex> lock(goal_mutex_);
   /// TODO: Get center of the last segment of the reference path
   if (!reference_primitive_.segments.empty()) {
-    auto last_segment = reference_primitive_.lastSegment();
+    auto &last_segment = reference_primitive_.lastSegment();
     if (last_segment.is_periodic) {
       /// TODO: Get the center of the circle
       Eigen::Vector3d segment_start = last_segment.states.front().position;
@@ -1116,7 +1116,7 @@ bool TerrainPlanner::setPlannerStateCallback(const std::shared_ptr<planner_msgs:
 }
 
 void TerrainPlanner::generateCircle(const Eigen::Vector3d end_position, const Eigen::Vector3d end_velocity,
-                                    const Eigen::Vector3d center_pos, PathSegment &trajectory) {
+                                    const Eigen::Vector3d center_pos, DubinsPathSegment &trajectory) {
   Eigen::Vector3d radial_vector = (end_position - center_pos);
   radial_vector(2) = 0.0;  // Only consider horizontal loiters
   Eigen::Vector3d emergency_rates =
@@ -1128,10 +1128,10 @@ void TerrainPlanner::generateCircle(const Eigen::Vector3d end_position, const Ei
   return;
 }
 
-PathSegment TerrainPlanner::generateArcTrajectory(Eigen::Vector3d rate, const double horizon,
-                                                  Eigen::Vector3d current_pos, Eigen::Vector3d current_vel,
-                                                  const double dt) {
-  PathSegment trajectory;
+DubinsPathSegment TerrainPlanner::generateArcTrajectory(Eigen::Vector3d rate, const double horizon,
+                                                        Eigen::Vector3d current_pos, Eigen::Vector3d current_vel,
+                                                        const double dt) {
+  DubinsPathSegment trajectory;
   trajectory.states.clear();
 
   double time = 0.0;

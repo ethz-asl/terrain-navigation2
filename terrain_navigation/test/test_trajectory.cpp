@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "terrain_navigation/dubins_path_segment.h"
 #include "terrain_navigation/path.h"
 
 //! @todo(srmainwaring)check includes
@@ -161,7 +162,7 @@ TEST(PathSegmentTest, getLineProgress) {
 
 TEST(PathSegmentSegmentTest, getClosestPoint) {
   Path trajectory;
-  PathSegment first_arc_segment;
+  auto first_arc_segment = std::make_shared<DubinsPathSegment>();
 
   State segment_start;
   segment_start.position = Eigen::Vector3d(0.0, 0.0, 0.0);
@@ -171,20 +172,20 @@ TEST(PathSegmentSegmentTest, getClosestPoint) {
   segment_middle.position = Eigen::Vector3d(1.0, 1.0, 0.0);
   segment_middle.velocity = Eigen::Vector3d(0.0, 1.0, 0.0);
 
-  first_arc_segment.curvature = 1.0;
-  first_arc_segment.states.push_back(segment_start);
-  first_arc_segment.states.push_back(segment_middle);
+  first_arc_segment->curvature = 1.0;
+  first_arc_segment->states.push_back(segment_start);
+  first_arc_segment->states.push_back(segment_middle);
   trajectory.appendSegment(first_arc_segment);
 
-  PathSegment second_straight_segment;
+  auto second_straight_segment = std::make_shared<DubinsPathSegment>();
 
   State second_segment_end;
   second_segment_end.position = Eigen::Vector3d(1.0, 2.0, 0.0);
   second_segment_end.velocity = Eigen::Vector3d(0.0, 1.0, 0.0);
 
-  second_straight_segment.curvature = 0.0;
-  second_straight_segment.states.push_back(segment_middle);
-  second_straight_segment.states.push_back(second_segment_end);
+  second_straight_segment->curvature = 0.0;
+  second_straight_segment->states.push_back(segment_middle);
+  second_straight_segment->states.push_back(second_segment_end);
   trajectory.appendSegment(second_straight_segment);
 
   Eigen::Vector3d query_poistion;
@@ -215,7 +216,7 @@ TEST(PathSegmentSegmentTest, getClosestPoint) {
 
 TEST(PathSegmentSegmentTest2, getClosestPoint) {
   Path trajectory;
-  PathSegment first_arc_segment;
+  auto first_arc_segment = std::make_shared<DubinsPathSegment>();
 
   State segment_start;
   segment_start.position = Eigen::Vector3d(0.0, 0.0, 0.0);
@@ -225,20 +226,20 @@ TEST(PathSegmentSegmentTest2, getClosestPoint) {
   segment_middle.position = Eigen::Vector3d(1.0, -1.0, 0.0);
   segment_middle.velocity = Eigen::Vector3d(0.0, -1.0, 0.0);
 
-  first_arc_segment.curvature = -1.0;
-  first_arc_segment.states.push_back(segment_start);
-  first_arc_segment.states.push_back(segment_middle);
+  first_arc_segment->curvature = -1.0;
+  first_arc_segment->states.push_back(segment_start);
+  first_arc_segment->states.push_back(segment_middle);
   trajectory.appendSegment(first_arc_segment);
 
-  PathSegment second_straight_segment;
+  auto second_straight_segment = std::make_shared<DubinsPathSegment>();
 
   State second_segment_end;
   second_segment_end.position = Eigen::Vector3d(1.0, -2.0, 0.0);
   second_segment_end.velocity = Eigen::Vector3d(0.0, -1.0, 0.0);
 
-  second_straight_segment.curvature = 0.0;
-  second_straight_segment.states.push_back(segment_middle);
-  second_straight_segment.states.push_back(second_segment_end);
+  second_straight_segment->curvature = 0.0;
+  second_straight_segment->states.push_back(segment_middle);
+  second_straight_segment->states.push_back(second_segment_end);
   trajectory.appendSegment(second_straight_segment);
 
   Eigen::Vector3d query_poistion;

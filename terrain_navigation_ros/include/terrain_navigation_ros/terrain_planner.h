@@ -42,6 +42,7 @@
 #ifndef TERRAIN_PLANNER_H
 #define TERRAIN_PLANNER_H
 
+#include <terrain_navigation/dubins_path_segment.h>
 #include <terrain_navigation/profiler.h>
 #include <terrain_planner/common.h>
 #include <terrain_planner/terrain_ompl_rrt.h>
@@ -138,9 +139,9 @@ class TerrainPlanner : public rclcpp::Node {
   visualization_msgs::msg::Marker getGoalMarker(const int id, const Eigen::Vector3d &position, const double radius,
                                                 const Eigen::Vector3d color);
   void generateCircle(const Eigen::Vector3d end_position, const Eigen::Vector3d end_velocity,
-                      const Eigen::Vector3d center_pos, PathSegment &trajectory);
-  PathSegment generateArcTrajectory(Eigen::Vector3d rates, const double horizon, Eigen::Vector3d current_pos,
-                                    Eigen::Vector3d current_vel, const double dt = 0.1);
+                      const Eigen::Vector3d center_pos, DubinsPathSegment &trajectory);
+  DubinsPathSegment generateArcTrajectory(Eigen::Vector3d rates, const double horizon, Eigen::Vector3d current_pos,
+                                          Eigen::Vector3d current_vel, const double dt = 0.1);
 
   void printPlannerState(PLANNER_STATE state) {
     switch (state) {

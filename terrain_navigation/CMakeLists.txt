@@ -45,8 +45,10 @@ endif()
 
 add_library(${PROJECT_NAME}
   src/data_logger.cpp
+  src/dubins_path_segment.cpp
   src/profiler.cpp
   src/terrain_map.cpp
+  src/trochoid_path_segment.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
