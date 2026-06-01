@@ -464,6 +464,7 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
           t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
           auto trajectory =
               extractPathSegment(from, to, *dubins_path, t_start, t_end, periodic_curvature, lengthPeriodicPath);
+          trajectory.is_periodic = true;
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
           }
