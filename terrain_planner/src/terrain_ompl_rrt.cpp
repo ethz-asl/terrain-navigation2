@@ -427,6 +427,9 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
     auto from = state_vector[idx];    // Start of the segment
     auto to = state_vector[idx + 1];  // End of the segment
     auto dubins_path = problem_setup_->getStateSpace()->as<ompl::base::OwenStateSpace>()->getPath(from, to);
+    if (!dubins_path.has_value()) {
+      continue;
+    }
 
     if (dubins_path->phi_ == 0.) {
       if (dubins_path->numTurns_ == 0) {
