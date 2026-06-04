@@ -111,7 +111,7 @@ class PathSegment {
 
     Eigen::Vector2d error_vector = segment_end - segment_start;
     double segment_distance = error_vector.norm();
-    double center_distance = std::sqrt(std::pow(1 / curvature, 2) - std::pow(0.5 * segment_distance, 2));
+    double center_distance = std::sqrt(std::max(0.0, std::pow(1 / curvature, 2) - std::pow(0.5 * segment_distance, 2)));
     Eigen::Vector2d midpoint_2d = 0.5 * (segment_start + segment_end);
     Eigen::Vector2d distance_vector_2d = error_vector.normalized();
     Eigen::Vector3d distance_vector = Eigen::Vector3d(distance_vector_2d(0), distance_vector_2d(1), 0.0);
