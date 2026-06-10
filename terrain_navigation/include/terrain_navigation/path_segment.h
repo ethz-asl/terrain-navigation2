@@ -232,8 +232,13 @@ class PathSegment {
         double angle_pos =
             std::atan2(position_vector(1), position_vector(0)) - std::atan2(start_vector(1), start_vector(0));
         wrap_2pi(angle_pos);
-        /// TODO: Check for the case for a helix!
-        theta = angle_pos / (2 * M_PI);
+        double dz = segment_end(2) - segment_start(2);
+        if (std::abs(dz) > 1e-3) {
+          // Helix: use altitude for monotonic progress so theta can reach >= 1.0
+          theta = (position(2) - segment_start(2)) / dz;
+        } else {
+          theta = angle_pos / (2 * M_PI);
+        }
       } else {
         // arc_center = getArcCenter(segment_start_2d, segment_start_tangent_2d, curvature);
         arc_center = getArcCenter(curvature, segment_start_2d, segment_start_tangent_2d, segment_end_2d);

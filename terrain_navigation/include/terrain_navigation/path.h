@@ -134,9 +134,10 @@ class Path {
       if (segment.reached && (&segment != &segments.back())) continue;
       auto theta = segment.getClosestPoint(position, closest_point, tangent, curvature);
 
-      // If current segment is a full circle, and has a next segment, escape when close to start of next segment
-      if (segment.is_periodic && (&segment != &segments.back())) {  // Segment is a terminal periodic set
-        Eigen::Vector3d next_segment_start = segments[segment_idx].states.front().position;
+      // If current segment is a full circle, and has a next segment, escape when close to start of next segment.
+      // Guard with theta > 0.5 to prevent premature firing at segment entry (e.g. helix sub-segments).
+      if (segment.is_periodic && (&segment != &segments.back()) && theta > 0.5) {
+        Eigen::Vector3d next_segment_start = segments[segment_idx + 1].states.front().position;
         if ((closest_point - next_segment_start).norm() < epsilon_) {
           segment.reached = true;
           return segment;

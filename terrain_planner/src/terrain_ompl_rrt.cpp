@@ -424,6 +424,7 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
           t_end = lengthPeriodicPath * (k + 1) / lengthTotal;
           auto trajectory =
               extractPathSegment(from, to, *dubins_path, t_start, t_end, periodic_curvature, lengthPeriodicPath);
+          trajectory.is_periodic = true;
           if (trajectory.states.size() > 1) {
             trajectory_segments.segments.push_back(trajectory);
           }
@@ -451,10 +452,30 @@ void TerrainOmplRrt::solutionPathToPath(ompl::geometric::PathGeometric path, Pat
       {
         // Initial turn curvature is determined by sign of phi_, using actual turn radius
         double initial_turn_curvature = (dubins_path->phi_ > 0.0 ? 1.0 : -1.0) / dubins_path->turnRadius_;
-        auto trajectory = extractPathSegment(from, to, *dubins_path, 0.0, lengthTurn / lengthTotal,
-                                             initial_turn_curvature, lengthTurn);
-        if (trajectory.states.size() > 1) {
-          trajectory_segments.segments.push_back(trajectory);
+        double lengthOneRevolution = 2.0 * M_PI * dubins_path->turnRadius_;
+        int n_full_revolutions = static_cast<int>(std::abs(dubins_path->phi_) / (2.0 * M_PI));
+        double remaining_phi = std::abs(dubins_path->phi_) - n_full_revolutions * 2.0 * M_PI;
+
+        // Split multi-revolution helix into at-most-one-revolution segments
+        double t_helix_start = 0.0;
+        for (int k = 0; k < n_full_revolutions; k++) {
+          double t_helix_end = (k + 1) * lengthOneRevolution / lengthTotal;
+          auto trajectory = extractPathSegment(from, to, *dubins_path, t_helix_start, t_helix_end,
+                                               initial_turn_curvature, lengthOneRevolution);
+          trajectory.is_periodic = true;
+          if (trajectory.states.size() > 1) {
+            trajectory_segments.segments.push_back(trajectory);
+          }
+          t_helix_start = t_helix_end;
+        }
+        if (remaining_phi > 1e-6) {
+          double remaining_length = dubins_path->turnRadius_ * remaining_phi;
+          double t_helix_end = lengthTurn / lengthTotal;
+          auto trajectory = extractPathSegment(from, to, *dubins_path, t_helix_start, t_helix_end,
+                                               initial_turn_curvature, remaining_length);
+          if (trajectory.states.size() > 1) {
+            trajectory_segments.segments.push_back(trajectory);
+          }
         }
       }
       // Remaining Dubins path - extract each segment individually
