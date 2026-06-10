@@ -162,9 +162,9 @@ Eigen::Vector4d rpy2quaternion(double roll, double pitch, double yaw) {
   return q;
 }
 
-PathSegment generateArcTrajectory(Eigen::Vector3d rate, const double horizon, Eigen::Vector3d current_pos,
-                                  Eigen::Vector3d current_vel, const double dt = 0.1) {
-  PathSegment trajectory;
+DubinsPathSegment generateArcTrajectory(Eigen::Vector3d rate, const double horizon, Eigen::Vector3d current_pos,
+                                        Eigen::Vector3d current_vel, const double dt = 0.1) {
+  DubinsPathSegment trajectory;
   trajectory.states.clear();
 
   double cruise_speed_{20.0};
@@ -202,15 +202,14 @@ PathSegment generateArcTrajectory(Eigen::Vector3d rate, const double horizon, Ei
   return trajectory;
 }
 
-PathSegment getLoiterPath(Eigen::Vector3d end_position, Eigen::Vector3d end_velocity, Eigen::Vector3d center_pos) {
+std::shared_ptr<DubinsPathSegment> getLoiterPath(Eigen::Vector3d end_position, Eigen::Vector3d end_velocity,
+                                                 Eigen::Vector3d center_pos) {
   Eigen::Vector3d radial_vector = (end_position - center_pos);
   radial_vector(2) = 0.0;  // Only consider horizontal loiters
   Eigen::Vector3d emergency_rates =
       20.0 * end_velocity.normalized().cross(radial_vector.normalized()) / radial_vector.norm();
   double horizon = 2 * M_PI / std::abs(emergency_rates(2));
-  // Append a loiter at the end of the planned path
-  PathSegment loiter_trajectory = generateArcTrajectory(emergency_rates, horizon, end_position, end_velocity);
-  return loiter_trajectory;
+  return std::make_shared<DubinsPathSegment>(generateArcTrajectory(emergency_rates, horizon, end_position, end_velocity));
 }
 
 void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub, Path& trajectory) {
@@ -235,9 +234,9 @@ void publishPathSegments(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>
     } else {
       color = Eigen::Vector3d(1.0, 0.0, 0.0);
     }
-    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(segment, i++, color));
-    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().front(), i++, color));
-    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment.position().back(), i++, color));
+    segment_markers.insert(segment_markers.begin(), trajectory2MarkerMsg(*segment, i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment->position().front(), i++, color));
+    segment_markers.insert(segment_markers.begin(), point2MarkerMsg(segment->position().back(), i++, color));
     segment_idx++;
   }
   msg.markers = segment_markers;
@@ -313,12 +312,12 @@ class SafeCirclePlanner : public rclcpp::Node {
 
     Eigen::Vector3d start_position = path.firstSegment().states.front().position;
     Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
-    PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
+    auto start_loiter_path = getLoiterPath(start_position, start_velocity, start);
     path.prependSegment(start_loiter_path);
 
     Eigen::Vector3d end_position = path.lastSegment().states.back().position;
     Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
-    PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
+    auto goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
     path.appendSegment(goal_loiter_path);
 
     /// TODO: Save planned path into a csv file for plotting

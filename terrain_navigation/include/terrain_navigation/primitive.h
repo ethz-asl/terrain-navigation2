@@ -38,10 +38,10 @@
 
 class Primitive {
  public:
-  Primitive(PathSegment &trajectory) { segment = trajectory; };
+  explicit Primitive(std::shared_ptr<PathSegment> trajectory) : segment(std::move(trajectory)){};
   virtual ~Primitive(){};
-  Eigen::Vector3d getEndofSegmentPosition() { return segment.states.back().position; }
-  Eigen::Vector3d getEndofSegmentVelocity() { return segment.states.back().velocity; }
+  Eigen::Vector3d getEndofSegmentPosition() { return segment->states.back().position; }
+  Eigen::Vector3d getEndofSegmentVelocity() { return segment->states.back().velocity; }
   bool valid() { return validity; }
   bool has_child() { return !child_primitives.empty(); }
 
@@ -78,7 +78,7 @@ class Primitive {
         std::vector<Path> extended_primitives = child->getMotionPrimitives();
         // Append current segment
         for (auto &primitive : extended_primitives) {
-          primitive.prependSegment(segment);
+          primitive.prependSegment(segment->clone());
           primitive.validity = validity && primitive.validity;
           all_primitives.push_back(primitive);
         }
@@ -87,7 +87,7 @@ class Primitive {
       }
     } else {  // Append primitive segments
       Path trajectory_segments;
-      trajectory_segments.appendSegment(segment);
+      trajectory_segments.appendSegment(segment->clone());
       trajectory_segments.validity = validity;
       trajectory_segments.utility = (visits < 1) ? 0.0 : utility / visits;
       all_primitives.push_back(trajectory_segments);
@@ -122,7 +122,7 @@ class Primitive {
   // A primitive is not valid if none of the child primitives are valid
   bool validity{true};
   bool evaluation{false};
-  PathSegment segment;
+  std::shared_ptr<PathSegment> segment;
   std::vector<std::shared_ptr<Primitive>> child_primitives;
 
  private:
