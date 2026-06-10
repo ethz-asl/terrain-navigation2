@@ -1120,7 +1120,7 @@ void TerrainPlanner::generateCircle(const Eigen::Vector3d end_position, const Ei
   Eigen::Vector3d radial_vector = (end_position - center_pos);
   radial_vector(2) = 0.0;  // Only consider horizontal loiters
   Eigen::Vector3d emergency_rates =
-      20.0 * end_velocity.normalized().cross(radial_vector.normalized()) / radial_vector.norm();
+      cruise_speed_ * end_velocity.normalized().cross(radial_vector.normalized()) / radial_vector.norm();
   double horizon = 2 * M_PI / std::abs(emergency_rates(2));
   // Append a loiter at the end of the planned path
   trajectory = generateArcTrajectory(emergency_rates, horizon, end_position, end_velocity);
