@@ -120,8 +120,8 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
       px4_namespace_ + "/fmu/out/position_setpoint_triplet", mavros_position_qos,
       std::bind(&TerrainPlanner::setpointTripletCallback, this, _1));
 
-  global_setpoint_pub_ = this->create_publisher<px4_msgs::msg::GlobalTrajectorySetpoint>(
-      px4_namespace_ + "/fmu/in/global_trajectory_setpoint", 1);
+  global_setpoint_pub_ =
+      this->create_publisher<px4_msgs::msg::GlobalPathSetpoint>(px4_namespace_ + "/fmu/in/global_path_setpoint", 1);
   offboard_mode_pub_ =
       this->create_publisher<px4_msgs::msg::OffboardControlMode>(px4_namespace_ + "/fmu/in/offboard_control_mode", 1);
   vehicle_pose_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("vehicle_pose_marker", 1);
@@ -261,8 +261,8 @@ void TerrainPlanner::cmdloopCallback() {
       curvature_reference = (1 - portion) * reference_curvature + portion * next_segment_curvature;
     }
 
-    publishGlobalPositionSetpoints(global_setpoint_pub_, latitude, longitude, altitude, velocity_reference,
-                                   curvature_reference);
+    publishGlobalPathSetpoints(global_setpoint_pub_, latitude, longitude, altitude, velocity_reference,
+                               curvature_reference);
 
     if (current_state_ == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD) {
       publishPositionHistory(referencehistory_pub_, reference_position, referencehistory_vector_);
@@ -714,25 +714,20 @@ void TerrainPlanner::publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Pat
   pub->publish(msg);
 }
 
-void TerrainPlanner::publishGlobalPositionSetpoints(
-    rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub, const double latitude,
-    const double longitude, const double altitude, const Eigen::Vector3d &velocity, const double curvature) {
+void TerrainPlanner::publishGlobalPathSetpoints(rclcpp::Publisher<px4_msgs::msg::GlobalPathSetpoint>::SharedPtr pub,
+                                                const double latitude, const double longitude, const double altitude,
+                                                const Eigen::Vector3d &velocity, const double curvature) {
   // Publishes position setpoints sequentially as trajectory setpoints
-  px4_msgs::msg::GlobalTrajectorySetpoint msg;
+  px4_msgs::msg::GlobalPathSetpoint msg;
   msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
   msg.lat = latitude;
   msg.lon = longitude;
   msg.alt = altitude;
-  msg.velocity[0] = velocity(1);
-  msg.velocity[1] = velocity(0);
-  msg.velocity[2] = -velocity(2);
-  auto curvature_vector = Eigen::Vector3d(0.0, 0.0, -curvature);
-  auto projected_velocity = Eigen::Vector3d(velocity(0), velocity(1), 0.0);
-  Eigen::Vector3d lateral_acceleration = projected_velocity.squaredNorm() * curvature_vector.cross(projected_velocity);
-  msg.acceleration[0] = lateral_acceleration(1);
-  msg.acceleration[1] = lateral_acceleration(0);
-  msg.acceleration[2] = -lateral_acceleration(2);
-
+  msg.tangent[0] = velocity(1);
+  msg.tangent[1] = velocity(0);
+  msg.tangent[2] = -velocity(2);
+  msg.height_rate = -velocity(2);
+  msg.curvature = -curvature;
   pub->publish(msg);
 }
 

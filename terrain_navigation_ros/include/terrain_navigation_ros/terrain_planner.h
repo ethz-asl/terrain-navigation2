@@ -57,7 +57,7 @@
 #include <planner_msgs/srv/set_service.hpp>
 #include <planner_msgs/srv/set_string.hpp>
 #include <planner_msgs/srv/set_vector3.hpp>
-#include <px4_msgs/msg/global_trajectory_setpoint.hpp>
+#include <px4_msgs/msg/global_path_setpoint.hpp>
 #include <px4_msgs/msg/offboard_control_mode.hpp>
 #include <px4_msgs/msg/position_setpoint_triplet.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
@@ -116,9 +116,9 @@ class TerrainPlanner : public rclcpp::Node {
   void MapPublishOnce(rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr pub, const grid_map::GridMap &map);
   void publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr, const Eigen::Vector3d &position,
                               std::vector<geometry_msgs::msg::PoseStamped> &history_vector);
-  void publishGlobalPositionSetpoints(rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub,
-                                      const double latitude, const double longitude, const double altitude,
-                                      const Eigen::Vector3d &velocity, const double curvature);
+  void publishGlobalPathSetpoints(rclcpp::Publisher<px4_msgs::msg::GlobalPathSetpoint>::SharedPtr pub,
+                                  const double latitude, const double longitude, const double altitude,
+                                  const Eigen::Vector3d &velocity, const double curvature);
   void publishReferenceMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
                               const Eigen::Vector3d &position, const Eigen::Vector3d &velocity, const double curvature);
   void publishReferenceCurvatureMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
@@ -171,7 +171,7 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr vehicle_pose_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr posehistory_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr referencehistory_pub_;
-  rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr global_setpoint_pub_;
+  rclcpp::Publisher<px4_msgs::msg::GlobalPathSetpoint>::SharedPtr global_setpoint_pub_;
   rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_mode_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr position_target_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr curvature_target_pub_;
