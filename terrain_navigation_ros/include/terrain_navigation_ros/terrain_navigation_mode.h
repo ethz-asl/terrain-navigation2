@@ -67,6 +67,24 @@ class TerrainNavigationMode : public px4_ros2::ModeBase {
   void onDeactivate() override {}
 
   /**
+   * @brief Attempt registration with PX4 without blocking on the internal FMU wait.
+   *
+   * Skips the built-in waitForFMU/compatibility check inside doRegister() — the
+   * caller is responsible for confirming PX4 is reachable before calling this.
+   * Safe to call repeatedly after failure; returns true immediately if already registered.
+   */
+  bool tryRegister() {
+    if (_registered) return true;
+    setSkipMessageCompatibilityCheck();
+    if (doRegister()) {
+      _registered = true;
+    }
+    return _registered;
+  }
+
+  bool isRegistered() const { return _registered; }
+
+  /**
    * @brief Publish a global path setpoint to PX4.
    * @param lat Latitude [deg]
    * @param lon Longitude [deg]
@@ -87,6 +105,7 @@ class TerrainNavigationMode : public px4_ros2::ModeBase {
 
  private:
   std::shared_ptr<px4_ros2::FwGlobalPathSetpointType> _path_setpoint;
+  bool _registered{false};
 };
 
 #endif  // TERRAIN_NAVIGATION_MODE_H

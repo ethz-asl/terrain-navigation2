@@ -167,19 +167,14 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   last_triggered_time_ = this->get_clock()->now();
 
   // Build the topic prefix expected by px4_ros2: strip leading '/', add trailing '/'
-  std::string topic_prefix;
   if (!px4_namespace_.empty()) {
-    topic_prefix = (px4_namespace_.front() == '/') ? px4_namespace_.substr(1) : px4_namespace_;
-    if (topic_prefix.back() != '/') topic_prefix += '/';
+    topic_prefix_ = (px4_namespace_.front() == '/') ? px4_namespace_.substr(1) : px4_namespace_;
+    if (topic_prefix_.back() != '/') topic_prefix_ += '/';
   }
-  terrain_mode_ = std::make_unique<TerrainNavigationMode>(*this, topic_prefix);
+  terrain_mode_ = std::make_unique<TerrainNavigationMode>(*this, topic_prefix_);
 }
 
 void TerrainPlanner::init() {
-  if (!terrain_mode_->doRegister()) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to register TerrainNavigationMode with PX4");
-  }
-
   auto plannerloop_dt_ = 2s;
   plannerloop_timer_ = this->create_wall_timer(plannerloop_dt_, std::bind(&TerrainPlanner::plannerloopCallback, this));
 
@@ -300,6 +295,23 @@ void TerrainPlanner::cmdloopCallback() {
 }
 
 void TerrainPlanner::statusloopCallback() {
+  if (!terrain_mode_->isRegistered()) {
+    // Non-blocking check: only attempt registration when PX4's vehicle_status publisher
+    // is visible on the graph. Without this guard, Registration::doRegister() can block
+    // for ~25s waiting for DDS endpoint discovery when PX4 is not running.
+    const std::string status_topic = topic_prefix_ + "fmu/out/vehicle_status";
+    if (this->count_publishers(status_topic) > 0) {
+      if (terrain_mode_->tryRegister()) {
+        RCLCPP_INFO(this->get_logger(), "Registered TerrainNavigationMode with PX4");
+      } else {
+        RCLCPP_WARN(this->get_logger(), "PX4 found but registration failed, will retry");
+      }
+    } else {
+      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                           "Waiting for PX4 FMU to become available...");
+    }
+  }
+
   // Check if we want to update the planner state if query state and current state is different
   planner_state_ = finiteStateMachine(planner_state_, query_planner_state_);
   if (query_planner_state_ != planner_state_) {  // Query has been rejected, reset

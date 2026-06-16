@@ -250,6 +250,7 @@ class TerrainPlanner : public rclcpp::Node {
   // Altitude controller max climb rate. Set to PX4 FW_T_CLMB_R_SP.
   double max_climb_rate_control_{3.0};
 
+  std::string topic_prefix_{};
   std::string map_path_{};
   std::string map_color_path_{};
   std::string mesh_resource_path_{};
