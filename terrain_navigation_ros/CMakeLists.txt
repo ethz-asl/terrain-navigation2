@@ -21,6 +21,7 @@ endif()
 # )
 
 find_package(ament_cmake REQUIRED)
+find_package(px4_ros2_cpp REQUIRED)
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_geo REQUIRED)
 find_package(grid_map_core REQUIRED)
@@ -85,6 +86,7 @@ ament_target_dependencies(${PROJECT_NAME} PUBLIC
   terrain_navigation
   terrain_planner
   px4_msgs
+  px4_ros2_cpp
 )
 
 add_executable(terrain_planner_node

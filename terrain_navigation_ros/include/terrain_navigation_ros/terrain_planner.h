@@ -57,8 +57,6 @@
 #include <planner_msgs/srv/set_service.hpp>
 #include <planner_msgs/srv/set_string.hpp>
 #include <planner_msgs/srv/set_vector3.hpp>
-#include <px4_msgs/msg/global_trajectory_setpoint.hpp>
-#include <px4_msgs/msg/offboard_control_mode.hpp>
 #include <px4_msgs/msg/position_setpoint_triplet.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_global_position.hpp>
@@ -66,6 +64,8 @@
 #include <px4_msgs/msg/vehicle_status.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+
+#include "terrain_navigation_ros/terrain_navigation_mode.h"
 
 enum class PLANNER_MODE { ACTIVE_MAPPING, EMERGENCY_ABORT, EXHAUSTIVE, GLOBAL, GLOBAL_REPLANNING, RANDOM, RETURN };
 
@@ -90,7 +90,6 @@ class TerrainPlanner : public rclcpp::Node {
   // States from vehicle
   void mavLocalPoseCallback(const px4_msgs::msg::VehicleLocalPosition &msg);
   void mavGlobalPoseCallback(const px4_msgs::msg::VehicleGlobalPosition &msg);
-  void mavstateCallback(const px4_msgs::msg::VehicleStatus &msg);
   void mavAttitudeCallback(const px4_msgs::msg::VehicleAttitude &msg);
   void setpointTripletCallback(const px4_msgs::msg::PositionSetpointTriplet &msg);
 
@@ -116,9 +115,6 @@ class TerrainPlanner : public rclcpp::Node {
   void MapPublishOnce(rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr pub, const grid_map::GridMap &map);
   void publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr, const Eigen::Vector3d &position,
                               std::vector<geometry_msgs::msg::PoseStamped> &history_vector);
-  void publishGlobalPositionSetpoints(rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub,
-                                      const double latitude, const double longitude, const double altitude,
-                                      const Eigen::Vector3d &velocity, const double curvature);
   void publishReferenceMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
                               const Eigen::Vector3d &position, const Eigen::Vector3d &velocity, const double curvature);
   void publishReferenceCurvatureMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
@@ -171,8 +167,6 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr vehicle_pose_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr posehistory_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr referencehistory_pub_;
-  rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr global_setpoint_pub_;
-  rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_mode_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr position_target_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr curvature_target_pub_;
   rclcpp::Publisher<planner_msgs::msg::NavigationStatus>::SharedPtr planner_status_pub_;
@@ -187,8 +181,8 @@ class TerrainPlanner : public rclcpp::Node {
   rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr mavlocalpose_sub_;
   rclcpp::Subscription<px4_msgs::msg::VehicleAttitude>::SharedPtr mavattitude_sub_;
   rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr mavglobalpose_sub_;
-  rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr mavstate_sub_;
   rclcpp::Subscription<px4_msgs::msg::PositionSetpointTriplet>::SharedPtr setpoint_triplet_sub_;
+  std::unique_ptr<TerrainNavigationMode> terrain_mode_;
 
   rclcpp::Service<planner_msgs::srv::SetString>::SharedPtr setlocation_serviceserver_;
   rclcpp::Service<planner_msgs::srv::SetString>::SharedPtr setmaxaltitude_serviceserver_;
@@ -230,7 +224,6 @@ class TerrainPlanner : public rclcpp::Node {
   Path reference_primitive_;
   Path candidate_primitive_;
   Path rollout_primitive_;
-  int current_state_;
 
   std::mutex goal_mutex_;  // protects g_i
 
@@ -257,6 +250,7 @@ class TerrainPlanner : public rclcpp::Node {
   // Altitude controller max climb rate. Set to PX4 FW_T_CLMB_R_SP.
   double max_climb_rate_control_{3.0};
 
+  std::string topic_prefix_{};
   std::string map_path_{};
   std::string map_color_path_{};
   std::string mesh_resource_path_{};

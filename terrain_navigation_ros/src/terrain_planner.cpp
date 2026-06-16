@@ -113,17 +113,10 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   candidate_goal_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_goal_marker", 1);
   candidate_start_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("candidate_start_marker", 1);
 
-  mavstate_sub_ = this->create_subscription<px4_msgs::msg::VehicleStatus>(
-      px4_namespace_ + "/fmu/out/vehicle_status_v1", mavros_position_qos,
-      std::bind(&TerrainPlanner::mavstateCallback, this, _1));
   setpoint_triplet_sub_ = this->create_subscription<px4_msgs::msg::PositionSetpointTriplet>(
       px4_namespace_ + "/fmu/out/position_setpoint_triplet", mavros_position_qos,
       std::bind(&TerrainPlanner::setpointTripletCallback, this, _1));
 
-  global_setpoint_pub_ = this->create_publisher<px4_msgs::msg::GlobalTrajectorySetpoint>(
-      px4_namespace_ + "/fmu/in/global_trajectory_setpoint", 1);
-  offboard_mode_pub_ =
-      this->create_publisher<px4_msgs::msg::OffboardControlMode>(px4_namespace_ + "/fmu/in/offboard_control_mode", 1);
   vehicle_pose_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("vehicle_pose_marker", 1);
   planner_status_pub_ = this->create_publisher<planner_msgs::msg::NavigationStatus>("planner_status", 1);
   path_segment_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("path_segments", 1);
@@ -172,6 +165,13 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
   // Initialise times - required to ensure all time sources are consistent
   plan_time_ = this->get_clock()->now();
   last_triggered_time_ = this->get_clock()->now();
+
+  // Build the topic prefix expected by px4_ros2: strip leading '/', add trailing '/'
+  if (!px4_namespace_.empty()) {
+    topic_prefix_ = (px4_namespace_.front() == '/') ? px4_namespace_.substr(1) : px4_namespace_;
+    if (topic_prefix_.back() != '/') topic_prefix_ += '/';
+  }
+  terrain_mode_ = std::make_unique<TerrainNavigationMode>(*this, topic_prefix_);
 }
 
 void TerrainPlanner::init() {
@@ -261,10 +261,15 @@ void TerrainPlanner::cmdloopCallback() {
       curvature_reference = (1 - portion) * reference_curvature + portion * next_segment_curvature;
     }
 
-    publishGlobalPositionSetpoints(global_setpoint_pub_, latitude, longitude, altitude, velocity_reference,
-                                   curvature_reference);
+    // Publish via the PX4 ROS 2 mode API (ENU velocity → NED tangent/height_rate, curvature sign flip)
+    Eigen::Vector3f tangent_ned(static_cast<float>(velocity_reference(1)),   // N ← ENU Y
+                                static_cast<float>(velocity_reference(0)),   // E ← ENU X
+                                static_cast<float>(-velocity_reference(2))); // D ← ENU -Z
+    terrain_mode_->publishSetpoint(latitude, longitude, static_cast<float>(altitude), tangent_ned,
+                                   static_cast<float>(-velocity_reference(2)),
+                                   static_cast<float>(-curvature_reference));
 
-    if (current_state_ == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD) {
+    if (terrain_mode_->isActive()) {
       publishPositionHistory(referencehistory_pub_, reference_position, referencehistory_vector_);
       tracking_error_ = reference_position - vehicle_position_;
       planner_enabled_ = true;
@@ -272,17 +277,6 @@ void TerrainPlanner::cmdloopCallback() {
       tracking_error_ = Eigen::Vector3d::Zero();
       planner_enabled_ = false;
     }
-
-    px4_msgs::msg::OffboardControlMode offboard_mode_msg;
-    offboard_mode_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    offboard_mode_msg.position = true;
-    offboard_mode_msg.velocity = true;
-    offboard_mode_msg.acceleration = true;
-    offboard_mode_msg.attitude = false;
-    offboard_mode_msg.body_rate = false;
-    offboard_mode_msg.thrust_and_torque = false;
-    offboard_mode_msg.direct_actuator = false;
-    offboard_mode_pub_->publish(offboard_mode_msg);
   }
 
   planner_msgs::msg::NavigationStatus msg;
@@ -301,6 +295,25 @@ void TerrainPlanner::cmdloopCallback() {
 }
 
 void TerrainPlanner::statusloopCallback() {
+  if (!terrain_mode_->isRegistered()) {
+    // Non-blocking check: only attempt registration when PX4's vehicle_status publisher
+    // is visible on the graph. Without this guard, Registration::doRegister() can block
+    // for ~25s waiting for DDS endpoint discovery when PX4 is not running.
+    // PX4 publishes vehicle_status_v1 with newer px4_msgs; fall back to vehicle_status.
+    const std::string status_topic_v1 = topic_prefix_ + "fmu/out/vehicle_status_v1";
+    const std::string status_topic = topic_prefix_ + "fmu/out/vehicle_status";
+    if (this->count_publishers(status_topic_v1) > 0 || this->count_publishers(status_topic) > 0) {
+      if (terrain_mode_->tryRegister()) {
+        RCLCPP_INFO(this->get_logger(), "Registered TerrainNavigationMode with PX4");
+      } else {
+        RCLCPP_WARN(this->get_logger(), "PX4 found but registration failed, will retry");
+      }
+    } else {
+      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                           "Waiting for PX4 FMU to become available...");
+    }
+  }
+
   // Check if we want to update the planner state if query state and current state is different
   planner_state_ = finiteStateMachine(planner_state_, query_planner_state_);
   if (query_planner_state_ != planner_state_) {  // Query has been rejected, reset
@@ -714,28 +727,6 @@ void TerrainPlanner::publishPositionHistory(rclcpp::Publisher<nav_msgs::msg::Pat
   pub->publish(msg);
 }
 
-void TerrainPlanner::publishGlobalPositionSetpoints(
-    rclcpp::Publisher<px4_msgs::msg::GlobalTrajectorySetpoint>::SharedPtr pub, const double latitude,
-    const double longitude, const double altitude, const Eigen::Vector3d &velocity, const double curvature) {
-  // Publishes position setpoints sequentially as trajectory setpoints
-  px4_msgs::msg::GlobalTrajectorySetpoint msg;
-  msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-  msg.lat = latitude;
-  msg.lon = longitude;
-  msg.alt = altitude;
-  msg.velocity[0] = velocity(1);
-  msg.velocity[1] = velocity(0);
-  msg.velocity[2] = -velocity(2);
-  auto curvature_vector = Eigen::Vector3d(0.0, 0.0, -curvature);
-  auto projected_velocity = Eigen::Vector3d(velocity(0), velocity(1), 0.0);
-  Eigen::Vector3d lateral_acceleration = projected_velocity.squaredNorm() * curvature_vector.cross(projected_velocity);
-  msg.acceleration[0] = lateral_acceleration(1);
-  msg.acceleration[1] = lateral_acceleration(0);
-  msg.acceleration[2] = -lateral_acceleration(2);
-
-  pub->publish(msg);
-}
-
 void TerrainPlanner::publishVelocityMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
                                            const Eigen::Vector3d &position, const Eigen::Vector3d &velocity) {
   visualization_msgs::msg::Marker marker = vector2ArrowsMsg(position, velocity, 0, Eigen::Vector3d(1.0, 0.0, 1.0));
@@ -855,8 +846,6 @@ visualization_msgs::msg::Marker TerrainPlanner::getGoalMarker(const int id, cons
   marker.color.b = color(2);
   return marker;
 }
-
-void TerrainPlanner::mavstateCallback(const px4_msgs::msg::VehicleStatus &msg) { current_state_ = msg.nav_state; }
 
 void TerrainPlanner::setpointTripletCallback(const px4_msgs::msg::PositionSetpointTriplet &msg) {
   const double lat = msg.current.lat;
