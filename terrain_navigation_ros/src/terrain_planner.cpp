@@ -299,8 +299,10 @@ void TerrainPlanner::statusloopCallback() {
     // Non-blocking check: only attempt registration when PX4's vehicle_status publisher
     // is visible on the graph. Without this guard, Registration::doRegister() can block
     // for ~25s waiting for DDS endpoint discovery when PX4 is not running.
+    // PX4 publishes vehicle_status_v1 with newer px4_msgs; fall back to vehicle_status.
+    const std::string status_topic_v1 = topic_prefix_ + "fmu/out/vehicle_status_v1";
     const std::string status_topic = topic_prefix_ + "fmu/out/vehicle_status";
-    if (this->count_publishers(status_topic) > 0) {
+    if (this->count_publishers(status_topic_v1) > 0 || this->count_publishers(status_topic) > 0) {
       if (terrain_mode_->tryRegister()) {
         RCLCPP_INFO(this->get_logger(), "Registered TerrainNavigationMode with PX4");
       } else {
