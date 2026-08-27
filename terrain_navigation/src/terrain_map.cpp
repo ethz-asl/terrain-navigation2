@@ -42,7 +42,7 @@
 
 #include <grid_map_core/GridMapMath.hpp>
 
-TerrainMap::TerrainMap() : GridMapGeo() {}
+TerrainMap::TerrainMap() : WaveletTerrainMap() {}
 
 TerrainMap::~TerrainMap() {}
 
@@ -99,6 +99,37 @@ double TerrainMap::getCollisionDepth(const std::string &layer, const Eigen::Vect
     }
   }
   return collision_depth;
+}
+
+void TerrainMap::applyCompressionErrorMargin(const std::string &layer_name) {
+  const double error_bound = getCompressionErrorBound();
+  if (error_bound <= 0.0) return;
+
+  double sign = 0.0;
+  if (layer_name == "distance_surface") {
+    // Floor: a reconstructed elevation that underestimates the true terrain
+    // by up to error_bound would make this floor too low, so raise it.
+    sign = 1.0;
+  } else if (layer_name == "max_elevation") {
+    // Ceiling: a reconstructed elevation that overestimates the true terrain
+    // by up to error_bound would make this ceiling too high, so lower it.
+    sign = -1.0;
+  } else {
+    return;
+  }
+  grid_map_[layer_name].array() += static_cast<float>(sign * error_bound);
+}
+
+bool TerrainMap::AddLayerDistanceTransform(const double surface_distance, const std::string &layer_name) {
+  if (!GridMapGeo::AddLayerDistanceTransform(surface_distance, layer_name, "elevation")) return false;
+  applyCompressionErrorMargin(layer_name);
+  return true;
+}
+
+bool TerrainMap::AddLayerOffsetTransform(const double surface_distance, const std::string &layer_name) {
+  if (!GridMapGeo::AddLayerOffsetTransform(surface_distance, layer_name, "elevation")) return false;
+  applyCompressionErrorMargin(layer_name);
+  return true;
 }
 
 void TerrainMap::AddLayerNormals(const std::string reference_layer) {

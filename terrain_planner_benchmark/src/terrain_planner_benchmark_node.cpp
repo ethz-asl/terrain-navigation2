@@ -71,20 +71,25 @@ int main(int argc, char** argv) {
   auto trajectory_pub =
       node->create_publisher<visualization_msgs::msg::MarkerArray>("tree", rclcpp::QoS(1).transient_local());
 
+  // A directory containing elevation.wavelet_quadtree, variance.wavelet_quadtree,
+  // and extent.txt (as written by generate_wavelet_quadtree.launch.py), not a
+  // GeoTIFF -- see TerrainMap::LoadFromWaveletQuadtree.
   auto const map_path = node->declare_parameter("map_path", "");
   auto const location = node->declare_parameter("location", "");
-  auto const color_file_path = node->declare_parameter("color_file_path", "");
   auto const output_file_dir = node->declare_parameter("output_directory", "");
   auto const number_of_runs = node->declare_parameter("number_of_runs", 10);
+  auto const query_height = node->declare_parameter("query_height", 0);
 
-  // Load terrain map from defined tif paths
+  // Load terrain map from a wavelet quadtree store. AddLayerDistanceTransform
+  // below picks up TerrainMap's compression-error-bounded override
+  // automatically (see terrain_navigation/terrain_map.h), inflating
+  // "distance_surface"/lowering "max_elevation" by the store's own
+  // getCompressionErrorBound() so collision checking against them stays
+  // conservative relative to the true, uncompressed terrain.
   auto terrain_map = std::make_shared<TerrainMap>();
-  if (!terrain_map->initializeFromGeotiff(map_path)) {
-    RCLCPP_ERROR_STREAM(node->get_logger(), "Unable to load geotiff from '" << map_path << "'!");
+  if (!terrain_map->LoadFromWaveletQuadtree(map_path, query_height)) {
+    RCLCPP_ERROR_STREAM(node->get_logger(), "Unable to load wavelet quadtree store from '" << map_path << "'!");
     return 1;
-  }
-  if (!color_file_path.empty()) {  // Load color layer if the color path is nonempty
-    terrain_map->addColorFromGeotiff(color_file_path);
   }
   terrain_map->AddLayerDistanceTransform(50.0, "distance_surface");
   terrain_map->AddLayerDistanceTransform(120.0, "max_elevation");

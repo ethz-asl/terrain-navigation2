@@ -18,6 +18,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_geo REQUIRED)
+find_package(grid_map_geo_wavelet_quadtree REQUIRED)
 find_package(grid_map_cv REQUIRED)
 # find_package(grid_map_pcl REQUIRED)
 find_package(grid_map_ros REQUIRED)
@@ -71,6 +72,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 ament_target_dependencies(${PROJECT_NAME} PUBLIC
   grid_map_core
   grid_map_geo
+  grid_map_geo_wavelet_quadtree
   terrain_navigation
   Boost
 )

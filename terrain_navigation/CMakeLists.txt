@@ -18,6 +18,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_geo REQUIRED)
+find_package(grid_map_geo_wavelet_quadtree REQUIRED)
 
 find_package(class_loader REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -64,6 +65,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 ament_target_dependencies(${PROJECT_NAME} PUBLIC
   grid_map_core
   grid_map_geo
+  grid_map_geo_wavelet_quadtree
 )
 
 # Install
@@ -90,6 +92,7 @@ if(BUILD_TESTING)
   ament_add_gtest(${PROJECT_NAME}-test
     test/main.cpp
     test/test_trajectory.cpp
+    test/test_terrain_map_compression_bound.cpp
     # test/test_terrain_map.cpp
   )
 

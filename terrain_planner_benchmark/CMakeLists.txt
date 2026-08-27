@@ -26,6 +26,7 @@ find_package(grid_map_msgs REQUIRED)
 find_package(grid_map_ros REQUIRED)
 find_package(grid_map_pcl REQUIRED)
 find_package(grid_map_geo REQUIRED)
+find_package(grid_map_geo_wavelet_quadtree REQUIRED)
 find_package(terrain_navigation REQUIRED)
 find_package(Boost REQUIRED) # Workaround for terrain_planner not exporting this correctly
 find_package(terrain_planner REQUIRED)
@@ -57,6 +58,12 @@ add_executable(test_rrt_circle_goal
 target_link_libraries(test_rrt_circle_goal PUBLIC
   ${PROJECT_NAME}
 )
+add_executable(test_rrt_part107
+  src/test_rrt_part107.cpp
+)
+target_link_libraries(test_rrt_part107 PUBLIC
+  ${PROJECT_NAME}
+)
 add_subdirectory(src)
 
 include(GNUInstallDirs)
@@ -64,6 +71,7 @@ install(
   TARGETS
     terrain_planner_benchmark_node
     test_rrt_circle_goal
+    test_rrt_part107
   EXPORT export_${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
