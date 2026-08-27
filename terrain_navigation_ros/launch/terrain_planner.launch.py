@@ -31,14 +31,16 @@ def generate_terrain_navigation_action(
 
     # terrain navigation node
     resource_path = os.path.join(pkg_terrain_navigation_ros, "resources")
-    terrain_path = os.path.join(resource_path, location + ".tif")
-    terrain_color_path = os.path.join(resource_path, location + "_color.tif")
+    # A directory containing elevation.wavelet_quadtree, variance.wavelet_quadtree,
+    # and extent.txt -- see generate_wavelet_quadtree.launch.py (in
+    # grid_map_geo_wavelet_quadtree) to produce one for a new location, and
+    # TerrainMap::LoadFromWaveletQuadtree for what consumes it.
+    terrain_path = os.path.join(resource_path, location + "_wavelet_quadtree")
     meshresource_path = os.path.join(resource_path, "believer.dae")
 
     # debug - check the context is resolved correctly.
     # print(f"resource_path:              {resource_path}")
     # print(f"terrain_path:               {terrain_path}")
-    # print(f"terrain_color_path:         {terrain_color_path}")
     # print(f"minimum_turn_radius:        {minimum_turn_radius}")
     # print(f"alt_control_p:              {alt_control_p}")
     # print(f"alt_control_max_climb_rate: {alt_control_max_climb_rate}")
@@ -54,7 +56,6 @@ def generate_terrain_navigation_action(
             {"minimum_turn_radius": minimum_turn_radius},
             {"resource_path": resource_path},
             {"terrain_path": terrain_path},
-            {"terrain_color_path": terrain_color_path},
             {"alt_control_p": alt_control_p},
             {"alt_control_max_climb_rate": alt_control_max_climb_rate},
             {"cruise_speed": cruise_speed},

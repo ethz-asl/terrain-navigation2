@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- "grid_map": check collisions against the dense layers materialized at
+       query_height. "quadtree": query the wavelet quadtree store directly. -->
+  <arg name="collision_checker" default="grid_map"/>
+  <arg name="query_height" default="0"/>
+  <!-- AGL altitude limits: floor/ceiling are elevation directly below the
+       vehicle plus a fixed offset, not a 3D clearance radius. -->
+  <arg name="min_agl" default="50.0"/>
+  <arg name="max_agl" default="1000.0"/>
+  <!-- <node pkg="tf" type="static_transform_publisher" name="world_map" args="0 0 0 0 0 0 world map 10"/> -->
+  <node pkg="terrain_planner_benchmark" exec="test_rrt_wavelet" name="rrt_planner" output="screen">
+    <param name="location" value="wsmr"/>
+    <param name="map_path" value="$(find-pkg-share terrain_models)/models/wsmr_wavelet_quadtree"/>
+    <param name="collision_checker" value="$(var collision_checker)"/>
+    <param name="query_height" value="$(var query_height)"/>
+    <param name="output_directory" value="$(find-pkg-share terrain_planner_benchmark)/../output"/>
+    <param name="min_agl" value="$(var min_agl)"/>
+    <param name="max_agl" value="$(var max_agl)"/>
+  </node>
+  <node pkg="rviz2" exec="rviz2" name="rviz" args="-d $(find-pkg-share terrain_planner_benchmark)/launch/config.rviz" />
+</launch>

@@ -18,6 +18,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(grid_map_core REQUIRED)
 find_package(grid_map_geo REQUIRED)
+find_package(grid_map_geo_wavelet_quadtree REQUIRED)
 find_package(grid_map_cv REQUIRED)
 # find_package(grid_map_pcl REQUIRED)
 find_package(grid_map_ros REQUIRED)
@@ -44,6 +45,7 @@ pkg_check_modules(ODE REQUIRED ode)
 # Libraries
 add_library(${PROJECT_NAME}
   src/common.cpp
+  src/quadtree_validity_checker.cpp
   src/terrain_ompl_rrt.cpp
   src/terrain_ompl.cpp
   src/visualization.cpp
@@ -71,6 +73,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 ament_target_dependencies(${PROJECT_NAME} PUBLIC
   grid_map_core
   grid_map_geo
+  grid_map_geo_wavelet_quadtree
   terrain_navigation
   Boost
 )
@@ -186,6 +189,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(${PROJECT_NAME}-test
     test/main.cpp
+    test/test_quadtree_validity_checker.cpp
   )
 
   target_link_directories(${PROJECT_NAME}-test PUBLIC

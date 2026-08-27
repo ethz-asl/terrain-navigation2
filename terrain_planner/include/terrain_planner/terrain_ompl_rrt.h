@@ -43,6 +43,7 @@
 
 #include <Eigen/Dense>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 #include <string>
 
@@ -163,6 +164,20 @@ class TerrainOmplRrt {
    */
   void setMaxAltitudeCollisionChecks(bool check_max_altitude) { check_max_altitude_ = check_max_altitude; }
 
+  using ValidityCheckerAllocator =
+      std::function<ompl::base::StateValidityCheckerPtr(const ompl::base::SpaceInformationPtr&)>;
+
+  /**
+   * @brief Use a custom state validity checker (e.g. ompl::QuadtreeValidityChecker) instead of the default
+   * TerrainValidityChecker on the map's "distance_surface"/"max_elevation" layers. Takes effect on the next
+   * setupProblem().
+   *
+   * @param allocator Creates the checker from the problem's space information. Empty restores the default.
+   */
+  void setValidityCheckerAllocator(ValidityCheckerAllocator allocator) {
+    validity_checker_allocator_ = std::move(allocator);
+  }
+
   /**
    * @brief Solve the planning problem for a given time budget, and return a TerrainSegments object if an exact solution
    * is found
@@ -241,6 +256,7 @@ class TerrainOmplRrt {
   Eigen::Vector3d upper_bound_{Eigen::Vector3d::Zero()};
   double solve_duration_{0.0};
   bool check_max_altitude_{true};
+  ValidityCheckerAllocator validity_checker_allocator_;
 };
 
 #endif

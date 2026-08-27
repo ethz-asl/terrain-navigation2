@@ -278,9 +278,9 @@ class TerrainPlanner : public rclcpp::Node {
   double max_climb_rate_control_{3.0};
 
   std::string map_path_{};
-  std::string map_color_path_{};
   std::string mesh_resource_path_{};
   std::string resource_path_{};
+  int query_height_{0};
   double max_elevation_{120.0};
   double min_elevation_{50.0};
   double goal_radius_{66.67};

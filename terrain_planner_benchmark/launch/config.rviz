@@ -95,6 +95,25 @@ Visualization Manager:
             Value: /grid_map
           Use Rainbow: true
           Value: true
+        - Alpha: 1
+          Auto-Compute Size Bounds: true
+          Class: grid_map_geo_rviz_plugin/QuadtreeStructure
+          Elevation Offset: 0.05000000074505806
+          Enabled: true
+          Max Cell Size: 64
+          Max Size Color: 0; 128; 255
+          Min Size Color: 255; 64; 0
+          Name: QuadtreeStructure
+          Outline Color: 0; 0; 0
+          Show Cell Outlines: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /quadtree_structure
+          Value: true
         - Alpha: 0.5
           Autocompute Intensity Bounds: true
           Class: grid_map_rviz_plugin/GridMap
@@ -216,6 +235,32 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /curvature_target
           Value: true
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: StartPositionMarker
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /start_position
+          Value: true
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: GoalPositionMarker
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /goal_position
+          Value: true
         - Class: rviz_default_plugins/InteractiveMarkers
           Enable Transparency: true
           Enabled: true
@@ -250,7 +295,7 @@ Visualization Manager:
             Value: /path_segments
           Value: true
         - Class: rviz_default_plugins/MarkerArray
-          Enabled: false
+          Enabled: true
           Name: TreeMarkerArray
           Namespaces:
             {}
@@ -260,7 +305,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /tree
-          Value: false
+          Value: true
         - Alpha: 1
           Buffer Length: 1
           Class: rviz_default_plugins/Path

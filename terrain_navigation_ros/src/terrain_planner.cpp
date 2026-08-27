@@ -70,18 +70,21 @@ TerrainPlanner::TerrainPlanner() : Node("terrain_planner") {
 
   // original parameters: resource locations and goal radius
   resource_path_ = this->declare_parameter("resource_path", "resources");
-  map_path_ = this->declare_parameter("terrain_path", resource_path_ + "/davosdorf.tif");
-  map_color_path_ = this->declare_parameter("terrain_color_path", resource_path_ + "/davosdorf_color");
+  // A directory containing elevation.wavelet_quadtree, variance.wavelet_quadtree,
+  // and extent.txt (as written by generate_wavelet_quadtree.launch.py), not a
+  // GeoTIFF -- see TerrainMap::LoadFromWaveletQuadtree.
+  map_path_ = this->declare_parameter("terrain_path", resource_path_ + "/davosdorf_wavelet_quadtree");
   mesh_resource_path_ = this->declare_parameter("meshresource_path", resource_path_ + "/believer.dae");
   avalanche_map_path = this->declare_parameter("avalanche_map_path", resource_path_ + "/avalanche.tif");
   goal_radius_ = this->declare_parameter("minimum_turn_radius", 66.67);
+  query_height_ = this->declare_parameter("query_height", 0);
 
   RCLCPP_INFO_STREAM(this->get_logger(), "resource_path: " << resource_path_);
   RCLCPP_INFO_STREAM(this->get_logger(), "map_path_: " << map_path_);
-  RCLCPP_INFO_STREAM(this->get_logger(), "map_color_path_: " << map_color_path_);
   RCLCPP_INFO_STREAM(this->get_logger(), "mesh_resource_path_: " << mesh_resource_path_);
   RCLCPP_INFO_STREAM(this->get_logger(), "avalanche_map_path: " << avalanche_map_path);
   RCLCPP_INFO_STREAM(this->get_logger(), "goal_radius_: " << goal_radius_);
+  RCLCPP_INFO_STREAM(this->get_logger(), "query_height_: " << query_height_);
 
   // additional parameters: vehicle guidance
   K_z_ = this->declare_parameter("alt_control_p", 0.5);
@@ -331,7 +334,7 @@ void TerrainPlanner::plannerloopCallback() {
   if (local_origin_received_ && !map_initialized_) {
     //! @todo(srmainwaring) consolidate duplicate code from here and TerrainPlanner::setLocationCallback
     std::cout << "[TerrainPlanner] Local origin received, loading map" << std::endl;
-    map_initialized_ = terrain_map_->Load(map_path_, map_color_path_);
+    map_initialized_ = terrain_map_->LoadFromWaveletQuadtree(map_path_, query_height_);
     terrain_map_->AddLayerDistanceTransform(min_elevation_, "distance_surface");
     terrain_map_->AddLayerDistanceTransform(max_elevation_, "max_elevation");
     terrain_map_->AddLayerHorizontalDistanceTransform(goal_radius_, "ics_+", "distance_surface");
@@ -1020,9 +1023,8 @@ bool TerrainPlanner::setLocationCallback(const std::shared_ptr<planner_msgs::srv
   // std::cout << "[TerrainPlanner] Set Alignment: " << align_location << std::endl;
 
   /// TODO: Add location from the new set location service
-  map_path_ = resource_path_ + "/" + set_location + ".tif";
-  map_color_path_ = resource_path_ + "/" + set_location + "_color.tif";
-  bool result = terrain_map_->Load(map_path_, map_color_path_);
+  map_path_ = resource_path_ + "/" + set_location + "_wavelet_quadtree";
+  bool result = terrain_map_->LoadFromWaveletQuadtree(map_path_, query_height_);
 
   //! @todo(srmainwaring) check result valid before further operations?
   std::cout << "[TerrainPlanner]   Computing distance transforms" << std::endl;
