@@ -23,10 +23,12 @@
   <build_depend>grid_map_pcl</build_depend>
   <build_depend>grid_map_geo</build_depend>
   <build_depend>grid_map_geo_wavelet_quadtree</build_depend>
+  <build_depend>grid_map_geo_msgs</build_depend>
   <build_depend>terrain_navigation</build_depend>
   <build_depend>ompl</build_depend>
   <build_depend>terrain_planner</build_depend>
   <build_depend>geometry_msgs</build_depend>
+  <exec_depend>grid_map_geo_rviz_plugin</exec_depend>
   <exec_depend>python3-gdal</exec_depend>
 
   <export>

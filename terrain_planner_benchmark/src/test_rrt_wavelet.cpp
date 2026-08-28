@@ -53,8 +53,10 @@
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#include <algorithm>
 #include <any>
 #include <geometry_msgs/msg/point.hpp>
+#include <grid_map_geo_msgs/msg/quadtree_structure.hpp>
 #include <grid_map_ros/GridMapRosConverter.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker.hpp>
@@ -67,14 +69,14 @@
 using namespace std::chrono_literals;
 
 void publishCircleSetpoints(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub,
-                            const Eigen::Vector3d& position, const double radius) {
-  visualization_msgs::msg::Marker marker;
-  marker.header.stamp = rclcpp::Clock().now();
-  marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-  marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.header.frame_id = "map";
-  marker.id = 0;
-  marker.header.stamp = rclcpp::Clock().now();
+                            const Eigen::Vector3d& position, const double radius, const double marker_size,
+                            const Eigen::Vector3d& color) {
+  visualization_msgs::msg::Marker circle_marker;
+  circle_marker.header.stamp = rclcpp::Clock().now();
+  circle_marker.header.frame_id = "map";
+  circle_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+  circle_marker.action = visualization_msgs::msg::Marker::ADD;
+  circle_marker.id = 0;
   std::vector<geometry_msgs::msg::Point> points;
   for (double t = 0.0; t <= 1.0; t += 0.02) {
     geometry_msgs::msg::Point point;
@@ -83,30 +85,40 @@ void publishCircleSetpoints(rclcpp::Publisher<visualization_msgs::msg::Marker>::
     point.z = position.z();
     points.push_back(point);
   }
-  geometry_msgs::msg::Point start_point;
-  start_point.x = position.x() + radius * std::cos(0.0);
-  start_point.y = position.y() + radius * std::sin(0.0);
-  start_point.z = position.z();
-  points.push_back(start_point);
+  points.push_back(points.front());  // close the loop back to the start
+  circle_marker.points = points;
+  // Line width scales with the loiter radius, not a fixed meter count, so
+  // it stays visible whether the map is sertig's ~1.7km or wsmr's ~50km.
+  circle_marker.scale.x = radius * 0.1;
+  circle_marker.color.a = 1.0;
+  circle_marker.color.r = static_cast<float>(color.x());
+  circle_marker.color.g = static_cast<float>(color.y());
+  circle_marker.color.b = static_cast<float>(color.z());
+  circle_marker.pose.orientation.w = 1.0;
+  pub->publish(circle_marker);
 
-  marker.points = points;
-  marker.scale.x = 5.0;
-  marker.scale.y = 5.0;
-  marker.scale.z = 5.0;
-  marker.color.a = 0.5;  // Don't forget to set the alpha!
-  marker.color.r = 0.0;
-  marker.color.g = 1.0;
-  marker.color.b = 0.0;
-  marker.pose.orientation.w = 1.0;
-  marker.pose.orientation.x = 0.0;
-  marker.pose.orientation.y = 0.0;
-  marker.pose.orientation.z = 0.0;
-  pub->publish(marker);
+  // A solid sphere at the exact position, in addition to the loiter circle
+  // above -- a thin circle outline is easy to miss at a glance on a
+  // wide-area map, especially before zooming in. Sized from `marker_size`
+  // (a fraction of the map's own extent, set by the caller), not `radius`
+  // (the ~67m physical loiter turn radius) -- otherwise it's imperceptible
+  // next to a many-km-wide map like wsmr's.
+  visualization_msgs::msg::Marker center_marker = circle_marker;
+  center_marker.id = 1;
+  center_marker.type = visualization_msgs::msg::Marker::SPHERE;
+  center_marker.points.clear();
+  center_marker.pose.position.x = position.x();
+  center_marker.pose.position.y = position.y();
+  center_marker.pose.position.z = position.z();
+  center_marker.scale.x = marker_size;
+  center_marker.scale.y = marker_size;
+  center_marker.scale.z = marker_size;
+  pub->publish(center_marker);
 }
 
 bool validatePosition(std::shared_ptr<TerrainMap> map, const Eigen::Vector3d goal, Eigen::Vector3d& valid_goal) {
-  double upper_surface = map->getGridMap().atPosition("ics_+", goal.head(2));
-  double lower_surface = map->getGridMap().atPosition("ics_-", goal.head(2));
+  double upper_surface = map->getGridMap().atPosition("distance_surface", goal.head(2));
+  double lower_surface = map->getGridMap().atPosition("max_elevation", goal.head(2));
   const bool is_goal_valid = (upper_surface < lower_surface) ? true : false;
   valid_goal(0) = goal(0);
   valid_goal(1) = goal(1);
@@ -222,16 +234,23 @@ class Part107CirclePlanner : public rclcpp::Node {
     start_pos_pub = this->create_publisher<visualization_msgs::msg::Marker>("start_position", 1);
     goal_pos_pub = this->create_publisher<visualization_msgs::msg::Marker>("goal_position", 1);
     path_pub = this->create_publisher<nav_msgs::msg::Path>("path", 1);
-    grid_map_pub = this->create_publisher<grid_map_msgs::msg::GridMap>("grid_map", 1);
+    // transient_local: published once (see end of constructor), so a
+    // subscriber (e.g. RViz) that connects slightly later still gets it.
+    grid_map_pub = this->create_publisher<grid_map_msgs::msg::GridMap>("grid_map", rclcpp::QoS(1).transient_local());
     trajectory_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("tree", 1);
     path_segment_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("path_segments", 1);
+    quadtree_structure_pub =
+        this->create_publisher<grid_map_geo_msgs::msg::QuadtreeStructure>("quadtree_structure", 1);
 
     timer = this->create_wall_timer(1s, std::bind(&Part107CirclePlanner::timer_callback, this));
 
+    // A directory containing elevation.wavelet_quadtree, variance.wavelet_quadtree,
+    // and extent.txt (as written by generate_wavelet_quadtree.launch.py), not
+    // a GeoTIFF -- see TerrainMap::LoadFromWaveletQuadtree.
     std::string map_path = this->declare_parameter("map_path", "");
-    std::string color_file_path = this->declare_parameter("color_file_path", "");
     std::string location = this->declare_parameter("location", "");
     std::string output_directory = this->declare_parameter("output_directory", "");
+    int query_height = this->declare_parameter("query_height", 0);
     min_agl_ = this->declare_parameter("min_agl", 50.0);
     max_agl_ = this->declare_parameter("max_agl", 120.0);
 
@@ -239,19 +258,61 @@ class Part107CirclePlanner : public rclcpp::Node {
     auto data_logger = std::make_shared<DataLogger>();
     data_logger->setKeys({"x", "y", "z"});
 
-    // Load terrain map from defined tif paths
+    // Load terrain map from a wavelet quadtree store. AddLayerOffsetTransform
+    // below picks up TerrainMap's compression-error-bounded override
+    // automatically, raising/lowering the AGL floor/ceiling by the store's
+    // own getCompressionErrorBound() so it stays conservative relative to
+    // the true, uncompressed terrain.
+    // Materialize exactly the store's actual data footprint -- not
+    // extent.txt's recorded bounding box, which for a large, sparsely
+    // populated store (e.g. wsmr's ~43x113km) can be both far bigger than
+    // the real coverage and off-center relative to it (a padded download
+    // whose real survey area sits off to one side). See
+    // WaveletTerrainMap::GetPopulatedExtent.
     terrain_map = std::make_shared<TerrainMap>();
-    terrain_map->initializeFromGeotiff(map_path);
-    if (!color_file_path.empty()) {  // Load color layer if the color path is nonempty
-      terrain_map->addColorFromGeotiff(color_file_path);
+    Eigen::Vector2d region_min, region_max;
+    if (!TerrainMap::GetPopulatedExtent(map_path, region_min, region_max)) {
+      throw std::runtime_error("Wavelet quadtree store at '" + map_path + "' has no populated data");
     }
+    const Eigen::Vector2d region_center = (region_min + region_max) / 2.0;
+    const grid_map::Length region_extent(region_max.x() - region_min.x(), region_max.y() - region_min.y());
+    terrain_map->LoadFromWaveletQuadtree(map_path, region_center, region_extent, query_height);
+
+    // The store doesn't change over the life of this node (no online
+    // updateElevation()/checkpoint() calls here), so the QuadtreeStructure
+    // message is built once, from the actual multi-resolution cells
+    // (getElevationCells()) rather than the dense reconstruction -- this is
+    // what lets it show the real compression structure (block/cell
+    // boundaries) in RViz, not just the flat elevation surface already
+    // published on "grid_map". Left uncolored: the QuadtreeStructure RViz
+    // plugin falls back to coloring by cell size when no color is set.
+    quadtree_structure_msg.header.frame_id = terrain_map->getGridMap().getFrameId();
+    for (const auto& cell : terrain_map->getElevationCells()) {
+      grid_map_geo_msgs::msg::QuadtreeCell cell_msg;
+      cell_msg.min_corner.x = static_cast<float>(cell.min_corner.x());
+      cell_msg.min_corner.y = static_cast<float>(cell.min_corner.y());
+      cell_msg.min_corner.z = 0.0f;
+      cell_msg.size = static_cast<float>(cell.size);
+      cell_msg.elevation = cell.value;
+      quadtree_structure_msg.cells.push_back(cell_msg);
+    }
+
     // Part 107 altitude limits are AGL (elevation directly below the
     // vehicle plus a fixed offset), not a 3D clearance radius from nearby
-    // terrain -- see TerrainMap::AddLayerOffsetTransform.
+    // terrain -- see TerrainMap::AddLayerOffsetTransform. The RRT solver's
+    // own collision checker (TerrainValidityChecker::checkCollision) reads
+    // "distance_surface"/"max_elevation" directly, so this is all it needs.
+    //
+    // No AddLayerHorizontalDistanceTransform("ics_+"/"ics_-") here: it's a
+    // brute-force O(cells * radius^2) per-cell circle scan (every cell
+    // scans every other cell within `radius`), only used below for the
+    // start/goal validity margin -- fine for sertig's ~85k cells, but
+    // becomes billions of inner iterations at wsmr's full-resolution scale.
+    // validatePosition() checks distance_surface/max_elevation directly
+    // instead, which loses the extra horizontal safety margin but not any
+    // actual collision-checking fidelity.
     terrain_map->AddLayerOffsetTransform(min_agl_, "distance_surface");
     terrain_map->AddLayerOffsetTransform(max_agl_, "max_elevation");
-    terrain_map->AddLayerHorizontalDistanceTransform(radius, "ics_+", "distance_surface");
-    terrain_map->AddLayerHorizontalDistanceTransform(-radius, "ics_-", "max_elevation");
 
     // Initialize planner with loaded terrain map
     planner = std::make_shared<TerrainOmplRrt>();
@@ -271,7 +332,7 @@ class Part107CirclePlanner : public rclcpp::Node {
     } else {
       throw std::runtime_error("Specified start position is NOT valid");
     }
-    Eigen::Vector3d goal{Eigen::Vector3d(map_pos(0) - 0.3 * map_width_x, map_pos(1) + 0.3 * map_width_y, 0.0)};
+    goal = Eigen::Vector3d(map_pos(0) - 0.3 * map_width_x, map_pos(1) + 0.3 * map_width_y, 0.0);
     Eigen::Vector3d updated_goal;
     if (validatePosition(terrain_map, goal, updated_goal)) {
       goal = updated_goal;
@@ -281,47 +342,81 @@ class Part107CirclePlanner : public rclcpp::Node {
     }
 
     planner->setupProblem(start, goal);
-    if (planner->Solve(10.0, path)) {
+    map_width_x_ = map_width_x;
+    map_width_y_ = map_width_y;
+    output_directory_ = output_directory;
+    location_ = location;
+    data_logger_ = data_logger;
+
+    // The terrain map is static for the life of this node (no online
+    // updateElevation()/checkpoint() calls here), and re-publishing a huge
+    // dense grid_map every second is wasted bandwidth at wsmr's scale --
+    // publish it once, latched (transient_local) so RViz still picks it up
+    // even if it subscribes slightly after this. Independent of whether
+    // planning ever succeeds.
+    auto grid_map_message = grid_map::GridMapRosConverter::toMessage(terrain_map->getGridMap());
+    grid_map_pub->publish(*grid_map_message);
+  }
+
+  // Solve() doesn't reset the tree between calls (only setupProblem() /
+  // clear() does), so calling it again after a prior failed/approximate
+  // attempt keeps extending the SAME tree rather than restarting -- driven
+  // from timer_callback below so the search keeps retrying, budget by
+  // budget, for as long as the node runs, instead of giving up after one
+  // fixed-time attempt like the original single-shot version did.
+  void attemptSolve() {
+    if (solved_) return;
+    const bool found = planner->Solve(kSolveBudgetSeconds, path);
+    total_solve_time_ += planner->getSolutionTime();
+    std::cout << "[TestRRTPart107] Attempt solve time: " << planner->getSolutionTime()
+              << "s (total: " << total_solve_time_ << "s)" << std::endl;
+    if (found) {
+      solved_ = true;
       std::cout << "[TestRRTPart107] Found Solution!" << std::endl;
+
+      Eigen::Vector3d start_position = path.firstSegment().states.front().position;
+      Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
+      PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
+      path.prependSegment(start_loiter_path);
+
+      Eigen::Vector3d end_position = path.lastSegment().states.back().position;
+      Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
+      PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
+      path.appendSegment(goal_loiter_path);
+
+      /// TODO: Save planned path into a csv file for plotting
+      for (auto& point : path.position()) {
+        std::unordered_map<std::string, std::any> state;
+        state.insert(std::pair<std::string, double>("x", point(0) + 0.5 * map_width_x_));
+        state.insert(std::pair<std::string, double>("y", point(1) + 0.5 * map_width_y_));
+        state.insert(std::pair<std::string, double>("z", point(2)));
+        data_logger_->record(state);
+      }
+
+      data_logger_->setPrintHeader(true);
+      std::string output_file_path = output_directory_ + "/" + location_ + "_planned_path_part107.csv";
+      data_logger_->writeToFile(output_file_path);
     } else {
-      std::cout << "[TestRRTPart107] Unable to find solution" << std::endl;
+      std::cout << "[TestRRTPart107] Unable to find solution, retrying..." << std::endl;
     }
-
-    Eigen::Vector3d start_position = path.firstSegment().states.front().position;
-    Eigen::Vector3d start_velocity = path.firstSegment().states.front().velocity;
-    PathSegment start_loiter_path = getLoiterPath(start_position, start_velocity, start);
-    path.prependSegment(start_loiter_path);
-
-    Eigen::Vector3d end_position = path.lastSegment().states.back().position;
-    Eigen::Vector3d end_velocity = path.lastSegment().states.back().velocity;
-    PathSegment goal_loiter_path = getLoiterPath(end_position, end_velocity, goal);
-    path.appendSegment(goal_loiter_path);
-
-    /// TODO: Save planned path into a csv file for plotting
-    for (auto& point : path.position()) {
-      std::unordered_map<std::string, std::any> state;
-      state.insert(std::pair<std::string, double>("x", point(0) + 0.5 * map_width_x));
-      state.insert(std::pair<std::string, double>("y", point(1) + 0.5 * map_width_y));
-      state.insert(std::pair<std::string, double>("z", point(2)));
-      data_logger->record(state);
-    }
-
-    data_logger->setPrintHeader(true);
-    std::string output_file_path = output_directory + "/" + location + "_planned_path_part107.csv";
-    data_logger->writeToFile(output_file_path);
   }
 
   void timer_callback() {
     std::cout << "Publishing results" << std::endl;
+    attemptSolve();
     // Repeatedly publish results
-    auto message = grid_map::GridMapRosConverter::toMessage(terrain_map->getGridMap());
-    grid_map_pub->publish(*message);
+    quadtree_structure_msg.header.stamp = this->now();
+    quadtree_structure_pub->publish(quadtree_structure_msg);
     publishTrajectory(path_pub, path.position());
     publishPathSegments(path_segment_pub, path);
 
     /// TODO: Publish a circle instead of a goal marker!
-    publishCircleSetpoints(start_pos_pub, start, radius);
-    publishCircleSetpoints(goal_pos_pub, goal, radius);
+    // 4% of the map's narrower dimension, so the marker stays a visible
+    // fraction of the view regardless of whether the map is sertig-scale
+    // (~1.7km) or wsmr-scale (~50km).
+    const double marker_size = 0.04 * std::min(map_width_x_, map_width_y_);
+    publishCircleSetpoints(start_pos_pub, start, radius, marker_size, Eigen::Vector3d(0.0, 1.0, 0.0));  // green
+    publishCircleSetpoints(goal_pos_pub, goal, radius, marker_size, Eigen::Vector3d(1.0, 0.0, 0.0));    // red
     publishTree(trajectory_pub, planner->getPlannerData(), planner->getProblemSetup());
   }
 
@@ -332,8 +427,10 @@ class Part107CirclePlanner : public rclcpp::Node {
   rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_pub;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_pub;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_segment_pub;
+  rclcpp::Publisher<grid_map_geo_msgs::msg::QuadtreeStructure>::SharedPtr quadtree_structure_pub;
   rclcpp::TimerBase::SharedPtr timer;
 
+  grid_map_geo_msgs::msg::QuadtreeStructure quadtree_structure_msg;
   std::shared_ptr<TerrainMap> terrain_map;
   std::shared_ptr<TerrainOmplRrt> planner;
   Path path;
@@ -342,6 +439,15 @@ class Part107CirclePlanner : public rclcpp::Node {
   double max_agl_{120.0};
   Eigen::Vector3d start;
   Eigen::Vector3d goal;
+
+  static constexpr double kSolveBudgetSeconds = 10.0;
+  bool solved_{false};
+  double total_solve_time_{0.0};
+  double map_width_x_{0.0};
+  double map_width_y_{0.0};
+  std::string output_directory_;
+  std::string location_;
+  std::shared_ptr<DataLogger> data_logger_;
 };
 
 int main(int argc, char** argv) {
